@@ -1,0 +1,5 @@
+{
+  "dart.flutterSdkPath": ".flutter-sdk",
+  "dart.lineLength": 120,
+  "editor.formatOnSave": true
+}
