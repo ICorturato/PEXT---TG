@@ -6,6 +6,7 @@ class PextAssets {
   static const resin = 'icons/resina.png';
   static const send = 'icons/chat/send.png';
   static const search = 'icons/common/search.png';
+  static const filter = 'icons/common/filter.png';
   static const arrow = 'icons/common/arrow.png';
   static const favorite = 'icons/common/favorite_2.png';
   static const favoriteActive = 'icons/common/favorite.png';

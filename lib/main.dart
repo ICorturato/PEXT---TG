@@ -212,9 +212,9 @@ class UserProgress extends StatelessWidget {
     const Text('Seu progresso', style: TextStyle(color: _blue, fontSize: 18)),
     const SizedBox(height: 10),
     Container(padding: const EdgeInsets.all(18), decoration: card(), child: Row(children: [
-      const SizedBox(width: 78, height: 78, child: CircularProgressIndicator(value: .5, strokeWidth: 7, backgroundColor: Color(0xFFE3E6EC), color: _blue)),
+      const SizedBox(width: 78, height: 78, child: Stack(alignment: Alignment.center, children: [CircularProgressIndicator(value: .5, strokeWidth: 7, backgroundColor: Color(0xFFE3E6EC), color: _blue), Text('50%', style: TextStyle(fontSize: 16, color: Color(0xFF172333)))])),
       const SizedBox(width: 10),
-      const ProgressStat('50%', ''), const ProgressStat('12', 'Treinamentos\nConcluídos'), const ProgressStat('6', 'Treinamentos\nem Curso'),
+      const ProgressStat('12', 'Treinamentos\nConcluídos'), const ProgressStat('6', 'Treinamentos\nem Curso'),
     ])),
     const SizedBox(height: 10),
   ]);
@@ -255,7 +255,7 @@ class QuickGrid extends StatelessWidget {
       QuickAction(PextAssets.recycling, 'Resinas', () => go(context, ResinsPage(admin: admin))),
       QuickAction(PextAssets.training, 'Treinamentos', () => go(context, TrainingPage(admin: admin))),
       QuickAction(PextAssets.problem, 'Problemas\ne Soluções', () => go(context, ProblemsPage(admin: admin))),
-      QuickAction(admin ? PextAssets.dashboardActive : PextAssets.product, admin ? 'Dashboard' : 'Estrutura', () => go(context, admin ? const DashboardPage() : const FavoritesPage())),
+      if (admin) QuickAction(PextAssets.dashboardActive, 'Dashboard', () => go(context, const DashboardPage())),
       if (admin) QuickAction(PextAssets.product, 'Embalagens', () => go(context, const PackagingPage())),
     ];
     return GridView.builder(shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, mainAxisSpacing: 14, crossAxisSpacing: 14, childAspectRatio: .95), itemCount: items.length, itemBuilder: (_, i) => items[i]);

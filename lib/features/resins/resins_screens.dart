@@ -31,7 +31,7 @@ class _ResinsListScreenState extends State<ResinsListScreen> {
       child: Column(children: [
         TextField(
           onChanged: (value) => setState(() => _query = value),
-          decoration: const InputDecoration(prefixIcon: Icon(Icons.search, color: _blue), hintText: 'Ex: Coextrusão', filled: true, fillColor: Colors.white, border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(11)), borderSide: BorderSide.none)),
+          decoration: const InputDecoration(prefixIcon: PextAssetIcon(PextAssets.search, size: 21), suffixIcon: Padding(padding: EdgeInsets.all(12), child: PextAssetIcon(PextAssets.filter, size: 20)), hintText: 'Ex: Coextrusão', filled: true, fillColor: Colors.white, border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(11)), borderSide: BorderSide.none)),
         ),
         const SizedBox(height: 14),
         Expanded(child: ListView.separated(itemCount: matches.length, separatorBuilder: (_, separatorIndex) => const SizedBox(height: 9), itemBuilder: (_, index) {
@@ -43,7 +43,7 @@ class _ResinsListScreenState extends State<ResinsListScreen> {
               Container(width: 42, height: 42, alignment: Alignment.center, decoration: BoxDecoration(color: resin.$3, borderRadius: BorderRadius.circular(9), border: Border.all(color: _border)), child: Text(resin.$4, style: const TextStyle(color: _blue, fontWeight: FontWeight.bold))),
               const SizedBox(width: 12),
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(resin.$1, style: const TextStyle(color: _blue, fontWeight: FontWeight.bold, fontSize: 16)), Text(resin.$2, style: const TextStyle(fontSize: 11, color: Color(0xFF687080)))])),
-              PextAssetIcon(widget.admin ? PextAssets.edit : PextAssets.resin, size: 22),
+               Icon(widget.admin ? Icons.edit_outlined : Icons.arrow_forward_ios_rounded, size: 18, color: _blue),
             ])),
           );
         })),
@@ -83,10 +83,10 @@ class _ResinDetailScreenState extends State<ResinDetailScreen> {
       const SizedBox(height: 12),
       Row(children: [const _Chip('PP', Color(0xFFE7F8EC)), const SizedBox(width: 8), const _Chip('Termoplástico', Color(0xFFF0F2F5)), const Spacer(), if (widget.admin) OutlinedButton.icon(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ResinFormScreen())), icon: const Icon(Icons.edit, size: 15), label: const Text('Editar', style: TextStyle(fontSize: 11)))]),
       const SizedBox(height: 18),
-      const Row(children: [Expanded(child: _Stat('Densidade', '0,90 - 0,91\ng/cm³', PextAssets.density)), SizedBox(width: 8), Expanded(child: _Stat('Temp. de fusão', '160 - 170°C', PextAssets.temperature)), SizedBox(width: 8), Expanded(child: _Stat('MFI', '0,3 - 50\ng/10 min', PextAssets.mfi))]),
-      const SizedBox(height: 20), _heading('Como funciona?'), const Text('O polipropileno é um termoplástico semicristalino produzido pela polimerização do propeno. É leve, versátil e muito utilizado em embalagens industriais.'),
+       const Row(children: [Expanded(child: SizedBox(height: 104, child: _Stat('Densidade', '0,90 - 0,91\ng/cm³', PextAssets.density))), SizedBox(width: 8), Expanded(child: SizedBox(height: 104, child: _Stat('Temp. de fusão', '160 - 170°C', PextAssets.temperature))), SizedBox(width: 8), Expanded(child: SizedBox(height: 104, child: _Stat('MFI', '0,3 - 50\ng/10 min', PextAssets.mfi)))]),
+       const SizedBox(height: 20), _heading('Aplicação'), const Text('Para o que é utilizado', style: TextStyle(color: _blue, fontWeight: FontWeight.bold)), const SizedBox(height: 6), const Text('O polipropileno é utilizado na produção de embalagens flexíveis e rígidas, tampas, fibras e peças técnicas. Sua versatilidade permite aplicações que exigem leveza, resistência química e boa processabilidade.'),
       const SizedBox(height: 20), _heading('Processo de produção'), const Row(children: [Expanded(child: _Flow(PextAssets.resin, 'Matéria-prima')), Icon(Icons.arrow_forward, size: 16), Expanded(child: _Flow(PextAssets.polimerization, 'Polimerização')), Icon(Icons.arrow_forward, size: 16), Expanded(child: _Flow(PextAssets.granulation, 'Granulação')), Icon(Icons.arrow_forward, size: 16), Expanded(child: _Flow(PextAssets.finalProduct, 'Produto final'))]),
-      const SizedBox(height: 20), _heading('Aplicações'), GridView.count(crossAxisCount: 3, shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), childAspectRatio: .92, mainAxisSpacing: 8, crossAxisSpacing: 8, children: const [_Use(PextAssets.packaging, 'Embalagens'), _Use(PextAssets.jar, 'Tampas'), _Use(PextAssets.fiber, 'Fibras'), _Use(PextAssets.car, 'Automotivo'), _Use(PextAssets.houseMachines, 'Utilidades'), _Use(PextAssets.joys, 'Consumo')]),
+       const SizedBox(height: 20), _heading('Principais aplicações'), GridView.count(crossAxisCount: 3, shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), childAspectRatio: .92, mainAxisSpacing: 8, crossAxisSpacing: 8, children: const [_Use(PextAssets.packaging, 'Embalagens'), _Use(PextAssets.jar, 'Tampas'), _Use(PextAssets.fiber, 'Fibras'), _Use(PextAssets.car, 'Automotivo'), _Use(PextAssets.houseMachines, 'Utilidades'), _Use(PextAssets.joys, 'Consumo')]),
     ]);
     if (_tab == 1) return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       _heading('Dados técnicos'), GridView.count(crossAxisCount: 2, shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), childAspectRatio: 1.55, mainAxisSpacing: 8, crossAxisSpacing: 8, children: const [_Stat('Densidade', '0,90 - 0,91 g/cm³', PextAssets.density), _Stat('Temp. de fusão', '160 - 170°C', PextAssets.temperature), _Stat('Resistência à tração', '30 - 40 MPa', PextAssets.material), _Stat('Impacto Izod', '20 kJ/m²', PextAssets.joys)]), const SizedBox(height: 20), _heading('Principais características'), ...['Leve e resistente', 'Boa resistência química', 'Alta resistência à fadiga', 'Reciclável'].map((item) => Padding(padding: const EdgeInsets.only(bottom: 10), child: Row(children: [const PextAssetIcon(PextAssets.check, size: 18), const SizedBox(width: 8), Text(item)]))),

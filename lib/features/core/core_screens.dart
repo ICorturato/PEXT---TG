@@ -11,8 +11,29 @@ class _TermsDictionaryScreenState extends State<TermsDictionaryScreen> {
   final _terms = const ['Aditivo', 'Aderência Intercamadas', 'Anel de Ar', 'Alimentador', 'ABS (Acrilonitrila Butadieno Estireno)', 'Barreira', 'Bobina', 'Bolha', 'Bico de Extrusão', 'Blenda Polimérica', 'Coextrusão', 'Cabeçote', 'Camada Barreira', 'Canal de Fluxo', 'Cristalinidade', 'Die', 'Degasagem', 'Delaminação', 'Dosagem Gravimétrica', 'Distribuidor de Fluxo'];
   @override Widget build(BuildContext context) { final items = _terms.where((term) => term.toLowerCase().contains(_query.toLowerCase())).toList(); return _Shell(title: widget.admin ? 'Termos' : 'Dicionário de Termos', action: widget.admin ? IconButton(onPressed: () => _termDialog(context), icon: const Icon(Icons.add_circle_outline, color: _blue)) : null, child: Column(children: [TextField(onChanged: (value) => setState(() => _query = value), decoration: const InputDecoration(prefixIcon: PextAssetIcon(PextAssets.search, size: 21), hintText: 'Ex: Coextrusão', filled: true, fillColor: Colors.white, border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(13)), borderSide: BorderSide.none))), const SizedBox(height: 14), Expanded(child: ListView(children: _grouped(items))) ])); }
   List<Widget> _grouped(List<String> items) { String letter = ''; final children = <Widget>[]; for (final term in items) { final initial = term[0].toUpperCase(); if (initial != letter) { letter = initial; children.add(Padding(padding: const EdgeInsets.fromLTRB(10, 12, 0, 4), child: Text(letter, style: const TextStyle(color: _blue, fontWeight: FontWeight.w600)))); } children.add(InkWell(onTap: () => _detail(context, term), child: Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7), decoration: const BoxDecoration(color: Colors.white, border: Border(bottom: BorderSide(color: _border))), child: Row(children: [Expanded(child: Text(term)), Icon(widget.admin ? Icons.edit_outlined : Icons.chevron_right, size: 18, color: _blue)])))); } return children; }
-  void _detail(BuildContext context, String term) => showDialog(context: context, builder: (_) => AlertDialog(title: Text(term, style: const TextStyle(color: _blue)), content: const Text('Conceito aplicado ao processo de coextrusão e à produção de embalagens multicamadas.'), actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Fechar'))]));
+  void _detail(BuildContext context, String term) => Navigator.push(context, MaterialPageRoute(builder: (_) => TermInfoScreen(term: term)));
   void _termDialog(BuildContext context) => showDialog(context: context, builder: (_) => const _InfoDialog('Adicionar termo', 'Formulário visual para cadastrar definição, operação e referências.'));
+}
+
+class TermInfoScreen extends StatelessWidget {
+  final String term;
+  const TermInfoScreen({super.key, required this.term});
+
+  @override
+  Widget build(BuildContext context) => _Shell(
+        title: 'Informações do termo',
+        child: ListView(children: [
+          Text(term, style: const TextStyle(color: _blue, fontSize: 24, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 18),
+          const Text('Definição', style: TextStyle(color: _blue, fontWeight: FontWeight.bold, fontSize: 16)),
+          const SizedBox(height: 7),
+          const Text('Conceito aplicado ao processo de coextrusão e à produção de embalagens multicamadas.'),
+          const SizedBox(height: 22),
+          const Text('Como é utilizado', style: TextStyle(color: _blue, fontWeight: FontWeight.bold, fontSize: 16)),
+          const SizedBox(height: 7),
+          const Text('Este termo auxilia a operação na identificação de materiais, parâmetros e etapas do processo produtivo.'),
+        ]),
+      );
 }
 
 class TrainingListScreen extends StatefulWidget { final bool admin; const TrainingListScreen({super.key, this.admin = false}); @override State<TrainingListScreen> createState() => _TrainingListScreenState(); }
@@ -52,7 +73,7 @@ class ExamResultScreen extends StatelessWidget { const ExamResultScreen({super.k
 
 class TrainingEditorScreen extends StatelessWidget { const TrainingEditorScreen({super.key}); @override Widget build(BuildContext context) => _Shell(title: 'Novo treinamento', child: ListView(children: const [_Field('Nome do treinamento'), _Field('Descrição', lines: 4), _Field('Percentual mínimo de aprovação'), _EditorSection('Módulos', Icons.menu_book_outlined), _EditorSection('Banco de questões', Icons.quiz_outlined), SizedBox(height: 10), _PrimaryButton('CADASTRAR') ])); }
 
-class ChatAssistantScreen extends StatelessWidget { final bool admin; const ChatAssistantScreen({super.key, this.admin = false}); @override Widget build(BuildContext context) => _Shell(title: admin ? 'Suporte administrativo' : 'Assistente IA', child: Column(children: [Expanded(child: ListView(children: [if (admin) const _ChatBubble('Solicitação de Igor: avaliar pressão para embalagem KitKat.', true), const _ChatBubble('Olá! Como posso ajudar na sua operação hoje?', false), const _ChatBubble('Qual a faixa de temperatura para PEBD?', true), const _ChatBubble('Consulte primeiro a ficha técnica. Se a dúvida exigir ajuste específico de linha, posso abrir uma solicitação para o supervisor.', false), if (!admin) OutlinedButton.icon(onPressed: () => showDialog(context: context, builder: (_) => const _InfoDialog('Solicitação enviada', 'A dúvida técnica foi encaminhada ao supervisor.')), icon: const PextAssetIcon(PextAssets.problemNotFound, size: 22), label: const Text('SOLICITAR SUPORTE'))])), Container(padding: const EdgeInsets.only(top: 8), child: Row(children: [const Expanded(child: TextField(decoration: InputDecoration(hintText: 'Faça sua pergunta', filled: true, fillColor: Colors.white, border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(16)), borderSide: BorderSide(color: _border))))), const SizedBox(width: 8), IconButton.filled(onPressed: () {}, icon: const PextAssetIcon(PextAssets.send, size: 25))]))])); }
+class ChatAssistantScreen extends StatelessWidget { final bool admin; const ChatAssistantScreen({super.key, this.admin = false}); @override Widget build(BuildContext context) => _Shell(title: admin ? 'Suporte administrativo' : 'Assistente IA', child: Column(children: [Expanded(child: ListView(children: [if (admin) const _ChatBubble('Solicitação de Igor: avaliar pressão para embalagem KitKat.', true), const _ChatBubble('Olá! Como posso ajudar na sua operação hoje?', false), const _ChatBubble('Qual a faixa de temperatura para PEBD?', true), const _ChatBubble('Consulte primeiro a ficha técnica. Se a dúvida exigir ajuste específico de linha, posso abrir uma solicitação para o supervisor.', false)])), Container(padding: const EdgeInsets.only(top: 8), child: Row(children: [const Expanded(child: TextField(decoration: InputDecoration(hintText: 'Faça sua pergunta', filled: true, fillColor: Colors.white, border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(16)), borderSide: BorderSide(color: _border))))), const SizedBox(width: 8), IconButton.filled(onPressed: () {}, icon: const PextAssetIcon(PextAssets.send, size: 25))]))])); }
 
 class PackagingListScreen extends StatefulWidget { const PackagingListScreen({super.key}); @override State<PackagingListScreen> createState() => _PackagingListScreenState(); }
 class _PackagingListScreenState extends State<PackagingListScreen> {
@@ -82,7 +103,53 @@ class _PackagingListScreenState extends State<PackagingListScreen> {
 class UserProfileScreen extends StatefulWidget { final bool admin; const UserProfileScreen({super.key, this.admin = false}); @override State<UserProfileScreen> createState() => _UserProfileScreenState(); }
 class _UserProfileScreenState extends State<UserProfileScreen> { int _tab = 0; @override Widget build(BuildContext context) => _Shell(title: 'Perfil', child: Column(children: [const CircleAvatar(radius: 62, backgroundColor: Colors.white, child: Padding(padding: EdgeInsets.all(20), child: PextAssetIcon(PextAssets.profileActive, size: 84))), const SizedBox(height: 10), Text(widget.admin ? 'André' : 'Igor', style: const TextStyle(color: _blue, fontSize: 23, fontWeight: FontWeight.bold)), const SizedBox(height: 12), _TabBar(labels: const ['Dados', 'Segurança'], value: _tab, onChanged: (value) => setState(() => _tab = value)), const SizedBox(height: 16), Expanded(child: SingleChildScrollView(child: _tab == 0 ? Column(children: const [_Field('CPF', value: '123.***.***-45'), _Field('Data de nascimento', value: '30/03/2005'), _Field('E-mail', value: 'igor@pext.com.br'), _Field('Telefone', value: '(17) 99999-9999'), _Field('Endereço', value: 'Rua Jorge Meneguel, 1948'), _Field('Cidade', value: 'Fernandópolis'), _Field('Função', value: 'Produção')]) : Column(children: const [_Field('Senha atual', value: '••••••••'), _Field('Nova senha', value: '••••••••'), _Field('Confirmar nova senha', value: '••••••••')]))), OutlinedButton(onPressed: () {}, child: Text(_tab == 0 ? 'EDITAR DADOS' : 'ALTERAR SENHA'))])); }
 
-class _Shell extends StatelessWidget { final String title; final Widget child; final Widget? action; const _Shell({required this.title, required this.child, this.action}); @override Widget build(BuildContext context) => Scaffold(backgroundColor: _canvas, appBar: AppBar(backgroundColor: _canvas, surfaceTintColor: _canvas, centerTitle: true, leading: IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.arrow_back_ios_new, color: _blue, size: 19)), title: Text(title, style: const TextStyle(color: _blue, fontWeight: FontWeight.w600, fontSize: 18)), actions: [if (action != null) action!, const SizedBox(width: 5)]), body: Padding(padding: const EdgeInsets.fromLTRB(28, 6, 28, 18), child: child)); }
+class _Shell extends StatelessWidget {
+  final String title;
+  final Widget child;
+  final Widget? action;
+  const _Shell({required this.title, required this.child, this.action});
+
+  int get _selected {
+    if (title == 'Treinamentos' || title == 'Processo de extrusão') return 0;
+    if (title == 'Assistente IA' || title == 'Suporte administrativo') return 3;
+    if (title == 'Perfil') return 4;
+    return 2;
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        backgroundColor: _canvas,
+        appBar: AppBar(backgroundColor: _canvas, surfaceTintColor: _canvas, centerTitle: true, leading: IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.arrow_back_ios_new, color: _blue, size: 19)), title: Text(title, style: const TextStyle(color: _blue, fontWeight: FontWeight.w600, fontSize: 18)), actions: [if (action != null) action!, const SizedBox(width: 5)]),
+        body: Padding(padding: const EdgeInsets.fromLTRB(28, 6, 28, 18), child: child),
+        bottomNavigationBar: _CoreBottomBar(selected: _selected),
+      );
+}
+
+class _CoreBottomBar extends StatelessWidget {
+  final int selected;
+  const _CoreBottomBar({required this.selected});
+
+  @override
+  Widget build(BuildContext context) => Container(
+        decoration: const BoxDecoration(color: Colors.white, border: Border(top: BorderSide(color: _border)), borderRadius: BorderRadius.vertical(top: Radius.circular(12))),
+        child: SafeArea(top: false, child: Row(children: [
+          _CoreNavItem(asset: PextAssets.education, activeAsset: PextAssets.educationActive, label: 'Treinamento', active: selected == 0, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TrainingListScreen()))),
+          _CoreNavItem(asset: PextAssets.heart, activeAsset: PextAssets.heartActive, label: 'Favoritos', active: selected == 1, onTap: () {}),
+          _CoreNavItem(asset: PextAssets.home, activeAsset: PextAssets.homeActive, label: 'Home', active: selected == 2, onTap: () => Navigator.pop(context)),
+          _CoreNavItem(asset: PextAssets.chat, activeAsset: PextAssets.chatActive, label: 'Chat', active: selected == 3, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ChatAssistantScreen()))),
+          _CoreNavItem(asset: PextAssets.profile, activeAsset: PextAssets.profileActive, label: 'Perfil', active: selected == 4, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const UserProfileScreen()))),
+        ])),
+      );
+}
+
+class _CoreNavItem extends StatelessWidget {
+  final String asset, activeAsset, label;
+  final bool active;
+  final VoidCallback onTap;
+  const _CoreNavItem({required this.asset, required this.activeAsset, required this.label, required this.active, required this.onTap});
+  @override
+  Widget build(BuildContext context) => Expanded(child: InkWell(onTap: onTap, child: Padding(padding: const EdgeInsets.only(top: 6, bottom: 4), child: Column(mainAxisSize: MainAxisSize.min, children: [PextAssetIcon(active ? activeAsset : asset, size: 31), Text(label, style: TextStyle(fontSize: 10, color: active ? _blue : const Color(0xFF26313D), fontWeight: active ? FontWeight.w700 : FontWeight.normal))]))));
+}
 class _TabBar extends StatelessWidget { final List<String> labels; final int value; final ValueChanged<int> onChanged; const _TabBar({required this.labels, required this.value, required this.onChanged}); @override Widget build(BuildContext context) => Row(children: labels.asMap().entries.map((entry) => Expanded(child: InkWell(onTap: () => onChanged(entry.key), child: Column(children: [Text(entry.value, style: TextStyle(fontSize: 11, color: entry.key == value ? _blue : const Color(0xFF7A8290), fontWeight: entry.key == value ? FontWeight.bold : FontWeight.normal)), const SizedBox(height: 7), Container(height: 1.5, color: entry.key == value ? _blue : _border)])))).toList()); }
 class _TrainingTile extends StatelessWidget { final int status; final bool admin; final VoidCallback onTap; const _TrainingTile({required this.status, required this.admin, required this.onTap}); @override Widget build(BuildContext context) { final labels = ['Em curso', 'Desistência', 'Concluído']; final colors = [const Color(0xFFF0A000), const Color(0xFFF04444), const Color(0xFF1AB65C)]; return InkWell(onTap: onTap, child: Container(margin: const EdgeInsets.only(bottom: 10), padding: const EdgeInsets.all(10), decoration: _card(), child: Row(children: [Container(width: 58, height: 58, decoration: BoxDecoration(color: const Color(0xFFE6EBF2), borderRadius: BorderRadius.circular(9)), child: const Icon(Icons.precision_manufacturing_outlined, color: _blue)), const SizedBox(width: 10), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Row(children: [const Expanded(child: Text('Processo de extrusão', style: TextStyle(color: _blue, fontWeight: FontWeight.bold))), _Pill(labels[status], colors[status])]), const Text('Módulo 2 - Temperatura e pressão', style: TextStyle(fontSize: 8)), const SizedBox(height: 7), Row(children: [Expanded(child: LinearProgressIndicator(value: status == 2 ? 1 : status == 1 ? 0 : .7, color: _blue, backgroundColor: _border, minHeight: 5)), const SizedBox(width: 5), Text(status == 2 ? '100%' : status == 1 ? '0%' : '70%', style: const TextStyle(fontSize: 10, color: _blue))])])), Icon(status == 2 ? Icons.favorite : Icons.favorite_border, color: _blue, size: 20)]))); } }
 class _Pill extends StatelessWidget { final String text; final Color color; const _Pill(this.text, this.color); @override Widget build(BuildContext context) => Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(4)), child: Text(text, style: const TextStyle(color: Colors.white, fontSize: 7, fontWeight: FontWeight.bold))); }
