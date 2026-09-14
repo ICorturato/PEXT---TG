@@ -413,38 +413,39 @@ class TrainingCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(10),
       decoration: card(),
-      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        ClipRRect(
-            borderRadius: BorderRadius.circular(9),
-            child: Image.asset('images/training_extrusion.png', width: 58, height: 58, fit: BoxFit.cover)),
-        const SizedBox(width: 10),
-        Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
-            const Expanded(
-                child: Text('Processo de extrusão', style: TextStyle(color: _blue, fontWeight: FontWeight.bold))),
-            StatusPill(
-                inProgress ? 'Em curso' : 'Concluído', inProgress ? const Color(0xFFF59E0B) : const Color(0xFF22C55E))
-          ]),
-          const Text('Módulo 2 - Temperatura e pressão', style: TextStyle(fontSize: 8, color: Color(0xFF6B7280))),
-          const SizedBox(height: 7),
-          Row(children: [
-            Expanded(
-                child: LinearProgressIndicator(
-                    value: inProgress ? .7 : 1, color: _blue, minHeight: 5, borderRadius: BorderRadius.circular(4))),
-            const SizedBox(width: 6),
-            Text(inProgress ? '70%' : '100%', style: const TextStyle(color: _blue, fontSize: 10))
-          ]),
-          if (!inProgress) ...[
-            const SizedBox(height: 6),
-            Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                decoration: BoxDecoration(color: const Color(0xFFFFE7E7), borderRadius: BorderRadius.circular(4)),
-                child: const Text('Reprovado: você acertou 11 de 20 questões (55%)',
-                    style: TextStyle(color: Color(0xFFEF4444), fontSize: 7, fontWeight: FontWeight.w600)))
-          ]
-        ]))
+      child: Column(children: [
+        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          ClipRRect(borderRadius: BorderRadius.circular(9), child: Image.asset('images/training_extrusion.png', width: 58, height: 58, fit: BoxFit.cover)),
+          const SizedBox(width: 10),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [const Expanded(child: Text('Processo de extrusão', style: TextStyle(color: _blue, fontWeight: FontWeight.bold))), StatusPill(inProgress ? 'Em curso' : 'Concluído', inProgress ? const Color(0xFFF59E0B) : const Color(0xFF22C55E))]),
+            const Text('Módulo 2 - Temperatura e pressão', style: TextStyle(fontSize: 8, color: Color(0xFF6B7280))),
+            const SizedBox(height: 7),
+            Row(children: [Expanded(child: LinearProgressIndicator(value: inProgress ? .7 : 1, color: _blue, minHeight: 5, borderRadius: BorderRadius.circular(4))), const SizedBox(width: 6), Text(inProgress ? '70%' : '100%', style: const TextStyle(color: _blue, fontSize: 10))]),
+          ])),
+        ]),
+        if (!inProgress) ...[
+          const SizedBox(height: 10),
+          const _FailedTrainingNotice(),
+        ],
+      ]));
+}
+
+class _FailedTrainingNotice extends StatelessWidget {
+  const _FailedTrainingNotice();
+  @override
+  Widget build(BuildContext context) => Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      decoration: BoxDecoration(color: const Color(0xFFFFE1AD), borderRadius: BorderRadius.circular(22)),
+      child: const Row(children: [
+        CircleAvatar(radius: 17, backgroundColor: Color(0xFFF59E0B), child: Icon(Icons.warning_amber_rounded, size: 23, color: Colors.white)),
+        SizedBox(width: 10),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('Reprovado', style: TextStyle(color: Color(0xFF363C46), fontSize: 15, fontWeight: FontWeight.bold)),
+          SizedBox(height: 1),
+          Text('Você acertou 11 de 20 questões (55%).', style: TextStyle(color: Color(0xFF6B7280), fontSize: 10, fontWeight: FontWeight.w600)),
+        ])),
       ]));
 }
 
