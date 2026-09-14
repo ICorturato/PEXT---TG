@@ -12,7 +12,7 @@ class _TermsDictionaryScreenState extends State<TermsDictionaryScreen> {
   @override
   Widget build(BuildContext context) {
     final items = _terms.where((term) => term.toLowerCase().contains(_query.toLowerCase())).toList();
-    return _Shell(title: widget.admin ? 'Termos' : 'Dicionário de Termos', action: widget.admin ? IconButton(onPressed: () => _termDialog(context), icon: const Icon(Icons.add_circle_outline, color: _blue)) : const Icon(Icons.favorite_border, color: _blue), child: Column(children: [
+    return _Shell(title: widget.admin ? 'Termos' : 'Dicionário de Termos', action: widget.admin ? _BoxedHeaderAction(icon: Icons.add, onTap: () => _termDialog(context)) : const _BoxedHeaderAction(icon: Icons.favorite_border), child: Column(children: [
       TextField(onChanged: (value) => setState(() => _query = value), decoration: const InputDecoration(prefixIcon: PextAssetIcon(PextAssets.search, size: 21), hintText: 'Ex: Coextrusão', filled: true, fillColor: Colors.white, border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(13)), borderSide: BorderSide(color: _border)))),
       const SizedBox(height: 14),
       Expanded(child: items.isEmpty ? const _NoTermsFound() : ListView(children: _grouped(items))),
@@ -36,7 +36,7 @@ class TermInfoScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) => _Shell(
         title: 'Dicionário de Termos',
-        action: const Icon(Icons.favorite_border, color: _blue),
+        action: const _BoxedHeaderAction(icon: Icons.favorite_border),
         child: ListView(children: [
           Container(padding: const EdgeInsets.all(14), decoration: _card(), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(term, style: const TextStyle(color: _blue, fontSize: 18, fontWeight: FontWeight.bold)),
@@ -181,6 +181,14 @@ class _CoreNavItem extends StatelessWidget {
   const _CoreNavItem({required this.asset, required this.activeAsset, required this.label, required this.active, required this.onTap});
   @override
   Widget build(BuildContext context) => Expanded(child: InkWell(onTap: onTap, child: Padding(padding: const EdgeInsets.only(top: 6, bottom: 4), child: Column(mainAxisSize: MainAxisSize.min, children: [PextAssetIcon(active ? activeAsset : asset, size: 31), Text(label, style: TextStyle(fontSize: 10, color: active ? _blue : const Color(0xFF26313D), fontWeight: active ? FontWeight.w700 : FontWeight.normal))]))));
+}
+
+class _BoxedHeaderAction extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback? onTap;
+  const _BoxedHeaderAction({required this.icon, this.onTap});
+  @override
+  Widget build(BuildContext context) => Container(width: 31, height: 31, margin: const EdgeInsets.only(right: 7), decoration: BoxDecoration(color: Colors.white, border: Border.all(color: _border), borderRadius: BorderRadius.circular(6)), child: IconButton(padding: EdgeInsets.zero, onPressed: onTap, icon: Icon(icon, size: 19, color: _blue)));
 }
 class _TabBar extends StatelessWidget { final List<String> labels; final int value; final ValueChanged<int> onChanged; const _TabBar({required this.labels, required this.value, required this.onChanged}); @override Widget build(BuildContext context) => Row(children: labels.asMap().entries.map((entry) => Expanded(child: InkWell(onTap: () => onChanged(entry.key), child: Column(children: [Text(entry.value, style: TextStyle(fontSize: 11, color: entry.key == value ? _blue : const Color(0xFF7A8290), fontWeight: entry.key == value ? FontWeight.bold : FontWeight.normal)), const SizedBox(height: 7), Container(height: 1.5, color: entry.key == value ? _blue : _border)])))).toList()); }
 class _TrainingTile extends StatelessWidget { final int status; final bool admin; final VoidCallback onTap; const _TrainingTile({required this.status, required this.admin, required this.onTap}); @override Widget build(BuildContext context) { final labels = ['Em curso', 'Desistência', 'Concluído']; final colors = [const Color(0xFFF0A000), const Color(0xFFF04444), const Color(0xFF1AB65C)]; return InkWell(onTap: onTap, child: Container(margin: const EdgeInsets.only(bottom: 10), padding: const EdgeInsets.all(10), decoration: _card(), child: Row(children: [Container(width: 58, height: 58, decoration: BoxDecoration(color: const Color(0xFFE6EBF2), borderRadius: BorderRadius.circular(9)), child: const Icon(Icons.precision_manufacturing_outlined, color: _blue)), const SizedBox(width: 10), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Row(children: [const Expanded(child: Text('Processo de extrusão', style: TextStyle(color: _blue, fontWeight: FontWeight.bold))), _Pill(labels[status], colors[status])]), const Text('Módulo 2 - Temperatura e pressão', style: TextStyle(fontSize: 8)), const SizedBox(height: 7), Row(children: [Expanded(child: LinearProgressIndicator(value: status == 2 ? 1 : status == 1 ? 0 : .7, color: _blue, backgroundColor: _border, minHeight: 5)), const SizedBox(width: 5), Text(status == 2 ? '100%' : status == 1 ? '0%' : '70%', style: const TextStyle(fontSize: 10, color: _blue))])])), Icon(status == 2 ? Icons.favorite : Icons.favorite_border, color: _blue, size: 20)]))); } }
