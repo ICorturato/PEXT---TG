@@ -1,18 +1,32 @@
 import 'package:flutter/material.dart';
 import '../../widgets/pext_asset_icon.dart';
 
-const _blue = Color(0xFF073B98);
-const _canvas = Color(0xFFF5F7FB);
-const _border = Color(0xFFDCE1E9);
+const _blue = Color(0xFF053488);
+const _canvas = Color(0xFFF6F8FB);
+const _border = Color(0xFFE5E7EB);
 
 class TermsDictionaryScreen extends StatefulWidget { final bool admin; const TermsDictionaryScreen({super.key, this.admin = false}); @override State<TermsDictionaryScreen> createState() => _TermsDictionaryScreenState(); }
 class _TermsDictionaryScreenState extends State<TermsDictionaryScreen> {
   String _query = '';
-  final _terms = const ['Aditivo', 'Aderência Intercamadas', 'Anel de Ar', 'Alimentador', 'ABS (Acrilonitrila Butadieno Estireno)', 'Barreira', 'Bobina', 'Bolha', 'Bico de Extrusão', 'Blenda Polimérica', 'Coextrusão', 'Cabeçote', 'Camada Barreira', 'Canal de Fluxo', 'Cristalinidade', 'Die', 'Degasagem', 'Delaminação', 'Dosagem Gravimétrica', 'Distribuidor de Fluxo'];
-  @override Widget build(BuildContext context) { final items = _terms.where((term) => term.toLowerCase().contains(_query.toLowerCase())).toList(); return _Shell(title: widget.admin ? 'Termos' : 'Dicionário de Termos', action: widget.admin ? IconButton(onPressed: () => _termDialog(context), icon: const Icon(Icons.add_circle_outline, color: _blue)) : null, child: Column(children: [TextField(onChanged: (value) => setState(() => _query = value), decoration: const InputDecoration(prefixIcon: PextAssetIcon(PextAssets.search, size: 21), hintText: 'Ex: Coextrusão', filled: true, fillColor: Colors.white, border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(13)), borderSide: BorderSide.none))), const SizedBox(height: 14), Expanded(child: ListView(children: _grouped(items))) ])); }
+  final _terms = const ['Aditivo', 'Aderência Intercamadas', 'Anel de Ar', 'Alimentador', 'ABS (Acrilonitrila Butadieno Estireno)', 'Barreira', 'Bobina', 'Bolha', 'Bico de Extrusão', 'Blenda Polimérica', 'Coextrusão', 'Cabeçote', 'Camada Barreira', 'Canal de Fluxo', 'Cristalinidade', 'Die', 'Degasagem', 'Delaminação', 'Dosagem Gravimétrica', 'Distribuidor de Fluxo', 'Extrusão'];
+  @override
+  Widget build(BuildContext context) {
+    final items = _terms.where((term) => term.toLowerCase().contains(_query.toLowerCase())).toList();
+    return _Shell(title: widget.admin ? 'Termos' : 'Dicionário de Termos', action: widget.admin ? IconButton(onPressed: () => _termDialog(context), icon: const Icon(Icons.add_circle_outline, color: _blue)) : const Icon(Icons.favorite_border, color: _blue), child: Column(children: [
+      TextField(onChanged: (value) => setState(() => _query = value), decoration: const InputDecoration(prefixIcon: PextAssetIcon(PextAssets.search, size: 21), hintText: 'Ex: Coextrusão', filled: true, fillColor: Colors.white, border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(13)), borderSide: BorderSide(color: _border)))),
+      const SizedBox(height: 14),
+      Expanded(child: items.isEmpty ? const _NoTermsFound() : ListView(children: _grouped(items))),
+    ]));
+  }
   List<Widget> _grouped(List<String> items) { String letter = ''; final children = <Widget>[]; for (final term in items) { final initial = term[0].toUpperCase(); if (initial != letter) { letter = initial; children.add(Padding(padding: const EdgeInsets.fromLTRB(10, 12, 0, 4), child: Text(letter, style: const TextStyle(color: _blue, fontWeight: FontWeight.w600)))); } children.add(InkWell(onTap: () => _detail(context, term), child: Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7), decoration: const BoxDecoration(color: Colors.white, border: Border(bottom: BorderSide(color: _border))), child: Row(children: [Expanded(child: Text(term)), Icon(widget.admin ? Icons.edit_outlined : Icons.chevron_right, size: 18, color: _blue)])))); } return children; }
   void _detail(BuildContext context, String term) => Navigator.push(context, MaterialPageRoute(builder: (_) => TermInfoScreen(term: term)));
   void _termDialog(BuildContext context) => showDialog(context: context, builder: (_) => const _InfoDialog('Adicionar termo', 'Formulário visual para cadastrar definição, operação e referências.'));
+}
+
+class _NoTermsFound extends StatelessWidget {
+  const _NoTermsFound();
+  @override
+  Widget build(BuildContext context) => const Padding(padding: EdgeInsets.only(top: 4), child: Row(children: [Text('Nada encontrado! - ', style: TextStyle(color: _blue)), Text('Solicitar ao supervisor', style: TextStyle(decoration: TextDecoration.underline, color: Color(0xFF363C46)))]));
 }
 
 class TermInfoScreen extends StatelessWidget {
@@ -21,20 +35,27 @@ class TermInfoScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => _Shell(
-        title: 'Informações do termo',
+        title: 'Dicionário de Termos',
+        action: const Icon(Icons.favorite_border, color: _blue),
         child: ListView(children: [
-          Text(term, style: const TextStyle(color: _blue, fontSize: 24, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 18),
-          const Text('Definição', style: TextStyle(color: _blue, fontWeight: FontWeight.bold, fontSize: 16)),
-          const SizedBox(height: 7),
-          const Text('Conceito aplicado ao processo de coextrusão e à produção de embalagens multicamadas.'),
-          const SizedBox(height: 22),
-          const Text('Como é utilizado', style: TextStyle(color: _blue, fontWeight: FontWeight.bold, fontSize: 16)),
-          const SizedBox(height: 7),
-          const Text('Este termo auxilia a operação na identificação de materiais, parâmetros e etapas do processo produtivo.'),
+          Container(padding: const EdgeInsets.all(14), decoration: _card(), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(term, style: const TextStyle(color: _blue, fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 15),
+            const Text('Processo onde um material é forçado sob alta pressão através de um orifício ou molde, adquirindo o formato exato dessa abertura. É uma técnica contínua usada em diversos setores, desde a fabricação de perfis metálicos e plásticos até a produção de alimentos e massas.'),
+            const SizedBox(height: 22),
+            const Text('Como funciona?', style: TextStyle(color: _blue, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 16),
+            const Text('O polímero é aquecido, plastificado e empurrado por uma rosca sem-fim através de um cabeçote, formando filmes, perfis, tubos, entre outros.'),
+            const SizedBox(height: 22),
+            const Text('Termos Relacionados', style: TextStyle(color: _blue, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 14),
+            Wrap(spacing: 8, children: const [_TermChip('Rosca'), _TermChip('Matriz'), _TermChip('Filme')]),
+          ])),
         ]),
       );
 }
+
+class _TermChip extends StatelessWidget { final String text; const _TermChip(this.text); @override Widget build(BuildContext context) => Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2), decoration: BoxDecoration(color: const Color(0xFFE5E7EB), borderRadius: BorderRadius.circular(4)), child: Text(text, style: const TextStyle(fontSize: 11, color: Color(0xFF363C46)))); }
 
 class TrainingListScreen extends StatefulWidget { final bool admin; const TrainingListScreen({super.key, this.admin = false}); @override State<TrainingListScreen> createState() => _TrainingListScreenState(); }
 class _TrainingListScreenState extends State<TrainingListScreen> {
@@ -73,7 +94,18 @@ class ExamResultScreen extends StatelessWidget { const ExamResultScreen({super.k
 
 class TrainingEditorScreen extends StatelessWidget { const TrainingEditorScreen({super.key}); @override Widget build(BuildContext context) => _Shell(title: 'Novo treinamento', child: ListView(children: const [_Field('Nome do treinamento'), _Field('Descrição', lines: 4), _Field('Percentual mínimo de aprovação'), _EditorSection('Módulos', Icons.menu_book_outlined), _EditorSection('Banco de questões', Icons.quiz_outlined), SizedBox(height: 10), _PrimaryButton('CADASTRAR') ])); }
 
-class ChatAssistantScreen extends StatelessWidget { final bool admin; const ChatAssistantScreen({super.key, this.admin = false}); @override Widget build(BuildContext context) => _Shell(title: admin ? 'Suporte administrativo' : 'Assistente IA', child: Column(children: [Expanded(child: ListView(children: [if (admin) const _ChatBubble('Solicitação de Igor: avaliar pressão para embalagem KitKat.', true), const _ChatBubble('Olá! Como posso ajudar na sua operação hoje?', false), const _ChatBubble('Qual a faixa de temperatura para PEBD?', true), const _ChatBubble('Consulte primeiro a ficha técnica. Se a dúvida exigir ajuste específico de linha, posso abrir uma solicitação para o supervisor.', false)])), Container(padding: const EdgeInsets.only(top: 8), child: Row(children: [const Expanded(child: TextField(decoration: InputDecoration(hintText: 'Faça sua pergunta', filled: true, fillColor: Colors.white, border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(16)), borderSide: BorderSide(color: _border))))), const SizedBox(width: 8), IconButton.filled(onPressed: () {}, icon: const PextAssetIcon(PextAssets.send, size: 25))]))])); }
+class ChatAssistantScreen extends StatelessWidget {
+  final bool admin;
+  const ChatAssistantScreen({super.key, this.admin = false});
+  @override
+  Widget build(BuildContext context) => _Shell(title: admin ? 'Suporte administrativo' : 'Assistente IA', child: Column(children: [
+        Expanded(child: ListView(children: [if (admin) const _ChatBubble('Solicitação de Igor: avaliar pressão para embalagem KitKat.', true), const _ChatBubble('Olá! Como posso ajudar na sua operação hoje?', false), const _ChatBubble('Qual a faixa de temperatura para PEBD?', true), const _ChatBubble('Consulte primeiro a ficha técnica. Se a dúvida exigir ajuste específico de linha, posso abrir uma solicitação para o supervisor.', false)])),
+        Container(height: 42, decoration: BoxDecoration(color: Colors.white, border: Border.all(color: _border), borderRadius: BorderRadius.circular(15)), child: Row(children: [
+          const Expanded(child: TextField(decoration: InputDecoration(contentPadding: EdgeInsets.symmetric(horizontal: 13), hintText: 'Faça sua pergunta', hintStyle: TextStyle(color: Color(0xFF9CA3AF)), border: InputBorder.none))),
+          Container(width: 38, height: 38, margin: const EdgeInsets.all(1), decoration: BoxDecoration(color: _blue, borderRadius: BorderRadius.circular(9)), child: const Padding(padding: EdgeInsets.all(7), child: PextAssetIcon(PextAssets.send, size: 21))),
+        ])),
+      ]));
+}
 
 class PackagingListScreen extends StatefulWidget { const PackagingListScreen({super.key}); @override State<PackagingListScreen> createState() => _PackagingListScreenState(); }
 class _PackagingListScreenState extends State<PackagingListScreen> {

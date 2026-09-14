@@ -6,9 +6,9 @@ import 'widgets/pext_asset_icon.dart';
 
 void main() => runApp(const PextApp());
 
-const _blue = Color(0xFF073B98);
-const _canvas = Color(0xFFF5F7FB);
-const _line = Color(0xFFDCE1E9);
+const _blue = Color(0xFF053488);
+const _canvas = Color(0xFFF6F8FB);
+const _line = Color(0xFFE5E7EB);
 
 class PextApp extends StatelessWidget {
   const PextApp({super.key});
@@ -212,7 +212,7 @@ class UserProgress extends StatelessWidget {
     const Text('Seu progresso', style: TextStyle(color: _blue, fontSize: 18)),
     const SizedBox(height: 10),
     Container(padding: const EdgeInsets.all(18), decoration: card(), child: Row(children: [
-      const SizedBox(width: 78, height: 78, child: Stack(alignment: Alignment.center, children: [CircularProgressIndicator(value: .5, strokeWidth: 7, backgroundColor: Color(0xFFE3E6EC), color: _blue), Text('50%', style: TextStyle(fontSize: 16, color: Color(0xFF172333)))])),
+      const SizedBox(width: 96, height: 96, child: Stack(alignment: Alignment.center, children: [CircularProgressIndicator(value: .5, strokeWidth: 7, backgroundColor: Color(0xFFE5E7EB), color: _blue), Text('50%', style: TextStyle(fontSize: 16, color: Color(0xFF363C46)))])),
       const SizedBox(width: 10),
       const ProgressStat('12', 'Treinamentos\nConcluídos'), const ProgressStat('6', 'Treinamentos\nem Curso'),
     ])),
