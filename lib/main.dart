@@ -202,7 +202,7 @@ class HomePage extends StatelessWidget {
 class ProfileAvatar extends StatelessWidget {
   const ProfileAvatar({super.key});
   @override
-  Widget build(BuildContext context) => Container(width: 56, height: 56, decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white, border: Border.all(color: _line)), child: const Padding(padding: EdgeInsets.all(10), child: PextAssetIcon(PextAssets.profileActive, size: 36)));
+  Widget build(BuildContext context) => Container(width: 56, height: 56, decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white, border: Border.all(color: _line)), clipBehavior: Clip.antiAlias, child: Image.asset('images/profile_igor.png', fit: BoxFit.cover, alignment: const Alignment(0, -0.45)));
 }
 
 class UserProgress extends StatelessWidget {
@@ -211,9 +211,9 @@ class UserProgress extends StatelessWidget {
   Widget build(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
     const Text('Seu progresso', style: TextStyle(color: _blue, fontSize: 18)),
     const SizedBox(height: 10),
-    Container(padding: const EdgeInsets.all(18), decoration: card(), child: Row(children: [
-      const SizedBox(width: 96, height: 96, child: Stack(alignment: Alignment.center, children: [CircularProgressIndicator(value: .5, strokeWidth: 7, backgroundColor: Color(0xFFE5E7EB), color: _blue), Text('50%', style: TextStyle(fontSize: 16, color: Color(0xFF363C46)))])),
-      const SizedBox(width: 10),
+    Container(height: 132, padding: const EdgeInsets.symmetric(horizontal: 18), decoration: card(), child: Row(children: [
+      const SizedBox(width: 104, height: 104, child: Stack(alignment: Alignment.center, children: [CircularProgressIndicator(value: .5, strokeWidth: 8, backgroundColor: Color(0xFFE5E7EB), color: _blue), Text('50%', style: TextStyle(fontSize: 16, color: Color(0xFF363C46)))])),
+      const SizedBox(width: 12),
       const ProgressStat('12', 'Treinamentos\nConcluídos'), const ProgressStat('6', 'Treinamentos\nem Curso'),
     ])),
     const SizedBox(height: 10),
@@ -272,9 +272,9 @@ class TrainingCard extends StatelessWidget {
   final bool inProgress;
   const TrainingCard({super.key, required this.inProgress});
   @override
-  Widget build(BuildContext context) => Container(margin: const EdgeInsets.only(bottom: 10), padding: const EdgeInsets.all(12), decoration: card(), child: Row(children: [
-    Container(width: 58, height: 58, decoration: BoxDecoration(color: const Color(0xFFE0E4E8), borderRadius: BorderRadius.circular(10)), child: const Padding(padding: EdgeInsets.all(11), child: PextAssetIcon(PextAssets.polimerization, size: 34))),
-    const SizedBox(width: 10), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Row(children: [const Expanded(child: Text('Processo de extrusão', style: TextStyle(color: _blue, fontWeight: FontWeight.bold))), StatusPill(inProgress ? 'Em curso' : 'Concluído', inProgress ? Colors.orange : Colors.green)]), const Text('Módulo 2 - Temperatura e pressão', style: TextStyle(fontSize: 8, color: Color(0xFF777E8C))), const SizedBox(height: 7), Row(children: [Expanded(child: LinearProgressIndicator(value: inProgress ? .7 : 1, color: _blue, minHeight: 5, borderRadius: BorderRadius.circular(4))), const SizedBox(width: 6), Text(inProgress ? '70%' : '100%', style: const TextStyle(color: _blue, fontSize: 10))])]))
+  Widget build(BuildContext context) => Container(margin: const EdgeInsets.only(bottom: 10), padding: const EdgeInsets.all(10), decoration: card(), child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+    ClipRRect(borderRadius: BorderRadius.circular(9), child: Image.asset('images/training_extrusion.png', width: 58, height: 58, fit: BoxFit.cover)),
+    const SizedBox(width: 10), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Row(children: [const Expanded(child: Text('Processo de extrusão', style: TextStyle(color: _blue, fontWeight: FontWeight.bold))), StatusPill(inProgress ? 'Em curso' : 'Concluído', inProgress ? const Color(0xFFF59E0B) : const Color(0xFF22C55E))]), const Text('Módulo 2 - Temperatura e pressão', style: TextStyle(fontSize: 8, color: Color(0xFF6B7280))), const SizedBox(height: 7), Row(children: [Expanded(child: LinearProgressIndicator(value: inProgress ? .7 : 1, color: _blue, minHeight: 5, borderRadius: BorderRadius.circular(4))), const SizedBox(width: 6), Text(inProgress ? '70%' : '100%', style: const TextStyle(color: _blue, fontSize: 10))]), if (!inProgress) ...[const SizedBox(height: 6), Container(width: double.infinity, padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3), decoration: BoxDecoration(color: const Color(0xFFFFE7E7), borderRadius: BorderRadius.circular(4)), child: const Text('Reprovado: você acertou 11 de 20 questões (55%)', style: TextStyle(color: Color(0xFFEF4444), fontSize: 7, fontWeight: FontWeight.w600)))]]))
   ]));
 }
 
