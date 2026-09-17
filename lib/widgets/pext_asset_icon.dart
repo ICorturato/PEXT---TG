@@ -16,6 +16,8 @@ class PextAssets {
   static const edit = 'icons/common/edit_2.png';
   static const pdf = 'icons/common/pdf.png';
   static const check = 'icons/common/check.png';
+  static const approved = 'icons/common/aproved.png';
+  static const tryAgain = 'icons/common/try_again.png';
   static const warning = 'icons/common/attencion.png';
   static const problemNotFound = 'icons/common/problem_not_found.png';
   static const chatbot = 'icons/home/chat.png';

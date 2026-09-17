@@ -43,12 +43,14 @@ class LoginPage extends StatelessWidget {
                 const Spacer(flex: 3),
                 const FieldLabel('CPF', hint: 'Digite seu CPF'),
                 const SizedBox(height: 6),
-                const FieldLabel('Senha', hint: 'Digite sua senha', obscure: true),
+                const FieldLabel('Senha',
+                    hint: 'Digite sua senha', obscure: true),
                 Align(
                   alignment: Alignment.centerRight,
                   child: TextButton(
                     onPressed: () {},
-                    child: const Text('Recuperar senha', style: TextStyle(fontSize: 11)),
+                    child: const Text('Recuperar senha',
+                        style: TextStyle(fontSize: 11)),
                   ),
                 ),
                 const Spacer(flex: 2),
@@ -58,21 +60,33 @@ class LoginPage extends StatelessWidget {
                     builder: (sheetContext) => SafeArea(
                       child: Padding(
                         padding: const EdgeInsets.all(20),
-                        child: Column(mainAxisSize: MainAxisSize.min, children: [
+                        child:
+                            Column(mainAxisSize: MainAxisSize.min, children: [
                           const Text('Escolha o perfil para visualizar',
-                              style: TextStyle(color: _blue, fontSize: 18, fontWeight: FontWeight.w600)),
+                              style: TextStyle(
+                                  color: _blue,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600)),
                           const SizedBox(height: 14),
                           ListTile(
-                            leading: const Icon(Icons.engineering_outlined, color: _blue),
+                            leading: const Icon(Icons.engineering_outlined,
+                                color: _blue),
                             title: const Text('Usuário'),
-                            onTap: () =>
-                                Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const HomePage())),
+                            onTap: () => Navigator.pushReplacement(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (_) => const HomePage())),
                           ),
                           ListTile(
-                            leading: const Icon(Icons.admin_panel_settings_outlined, color: _blue),
+                            leading: const Icon(
+                                Icons.admin_panel_settings_outlined,
+                                color: _blue),
                             title: const Text('Administrador'),
                             onTap: () => Navigator.pushReplacement(
-                                context, MaterialPageRoute(builder: (_) => const HomePage(admin: true))),
+                                context,
+                                MaterialPageRoute(
+                                    builder: (_) =>
+                                        const HomePage(admin: true))),
                           ),
                         ]),
                       ),
@@ -81,9 +95,12 @@ class LoginPage extends StatelessWidget {
                   style: FilledButton.styleFrom(
                     backgroundColor: const Color(0xFF17459A),
                     minimumSize: const Size.fromHeight(55),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14)),
                   ),
-                  child: const Text('ENTRAR', style: TextStyle(fontSize: 25, fontWeight: FontWeight.bold)),
+                  child: const Text('ENTRAR',
+                      style:
+                          TextStyle(fontSize: 25, fontWeight: FontWeight.bold)),
                 ),
                 const Spacer(flex: 3),
               ],
@@ -106,9 +123,11 @@ class PextLogo extends StatelessWidget {
 class FieldLabel extends StatelessWidget {
   final String label, hint;
   final bool obscure;
-  const FieldLabel(this.label, {super.key, required this.hint, this.obscure = false});
+  const FieldLabel(this.label,
+      {super.key, required this.hint, this.obscure = false});
   @override
-  Widget build(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+  Widget build(BuildContext context) =>
+      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text(label, style: const TextStyle(color: _blue, fontSize: 16)),
         const SizedBox(height: 5),
         TextField(
@@ -119,10 +138,12 @@ class FieldLabel extends StatelessWidget {
             filled: true,
             fillColor: Colors.white,
             isDense: true,
-            border:
-                OutlineInputBorder(borderRadius: BorderRadius.circular(11), borderSide: const BorderSide(color: _line)),
-            enabledBorder:
-                OutlineInputBorder(borderRadius: BorderRadius.circular(11), borderSide: const BorderSide(color: _line)),
+            border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(11),
+                borderSide: const BorderSide(color: _line)),
+            enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(11),
+                borderSide: const BorderSide(color: _line)),
           ),
         ),
       ]);
@@ -132,7 +153,8 @@ class AppShell extends StatelessWidget {
   final Widget body;
   final int selected;
   final bool admin;
-  const AppShell({super.key, required this.body, this.selected = 2, this.admin = false});
+  const AppShell(
+      {super.key, required this.body, this.selected = 2, this.admin = false});
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -189,7 +211,11 @@ class AppShell extends StatelessWidget {
       );
 }
 
-void go(BuildContext context, Widget page) => Navigator.push(context, MaterialPageRoute(builder: (_) => page));
+void go(BuildContext context, Widget page) =>
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => page),
+      (route) => false,
+    );
 
 class NavItem extends StatelessWidget {
   final String asset;
@@ -218,7 +244,8 @@ class NavItem extends StatelessWidget {
                     style: TextStyle(
                         fontSize: 10,
                         color: active ? _blue : const Color(0xFF26313D),
-                        fontWeight: active ? FontWeight.w700 : FontWeight.normal)),
+                        fontWeight:
+                            active ? FontWeight.w700 : FontWeight.normal)),
               ],
             ),
           ),
@@ -232,27 +259,33 @@ class HomePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) => AppShell(
         admin: admin,
-        body: ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 18), children: [
-          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-            Text(admin ? 'Olá, André' : 'Olá, Igor',
-                style: const TextStyle(color: _blue, fontSize: 34, fontWeight: FontWeight.w600)),
-            const ProfileAvatar()
-          ]),
-          const SizedBox(height: 8),
-          if (admin) const AdminProgress() else const UserProgress(),
-          if (admin)
-            OutlinedButton(
-                onPressed: () => go(context, const DashboardPage()), child: const Text('Ver mais dashboards')),
-          const SizedBox(height: 10),
-          const SectionTitle('Acesso Rápido'),
-          QuickGrid(admin: admin),
-          if (!admin) ...[
-            const SectionTitle('Continue treinando'),
-            const TrainingCard(inProgress: true),
-            const SectionTitle('Refaça o teste'),
-            const TrainingCard(inProgress: false),
-          ],
-        ]),
+        body: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 18),
+            children: [
+              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                Text(admin ? 'Olá, André' : 'Olá, Igor',
+                    style: const TextStyle(
+                        color: _blue,
+                        fontSize: 34,
+                        fontWeight: FontWeight.w600)),
+                const ProfileAvatar()
+              ]),
+              const SizedBox(height: 8),
+              if (admin) const AdminProgress() else const UserProgress(),
+              if (admin)
+                OutlinedButton(
+                    onPressed: () => go(context, const DashboardPage()),
+                    child: const Text('Ver mais dashboards')),
+              const SizedBox(height: 10),
+              const SectionTitle('Acesso Rápido'),
+              QuickGrid(admin: admin),
+              if (!admin) ...[
+                const SectionTitle('Continue treinando'),
+                const TrainingCard(inProgress: true),
+                const SectionTitle('Refaça o teste'),
+                const TrainingCard(inProgress: false),
+              ],
+            ]),
       );
 }
 
@@ -262,34 +295,52 @@ class ProfileAvatar extends StatelessWidget {
   Widget build(BuildContext context) => Container(
       width: 56,
       height: 56,
-      decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white, border: Border.all(color: _line)),
+      decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: Colors.white,
+          border: Border.all(color: _line)),
       clipBehavior: Clip.antiAlias,
-      child: Image.asset('images/profile_igor.png', fit: BoxFit.cover, alignment: const Alignment(0, -0.45)));
+      child: Image.asset('images/profile_igor.png',
+          fit: BoxFit.cover, alignment: const Alignment(0, -0.45)));
 }
 
 class UserProgress extends StatelessWidget {
   const UserProgress({super.key});
   @override
-  Widget build(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('Seu progresso', style: TextStyle(color: _blue, fontSize: 18)),
+  Widget build(BuildContext context) =>
+      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Text('Seu progresso',
+            style: TextStyle(color: _blue, fontSize: 18)),
         const SizedBox(height: 10),
         Container(
-            height: 122,
-            padding: const EdgeInsets.symmetric(horizontal: 24),
+            height: 140,
+            padding: const EdgeInsets.symmetric(horizontal: 26),
             decoration: card(),
-            child: const Row(children: [
-              SizedBox(
-                  width: 82,
-                  height: 82,
-                  child: Stack(alignment: Alignment.center, children: [
-                    CircularProgressIndicator(
-                        value: .5, strokeWidth: 7, backgroundColor: Color(0xFFE5E7EB), color: _blue),
-                    Text('50%', style: TextStyle(fontSize: 16, color: Color(0xFF363C46)))
-                  ])),
-              SizedBox(width: 16),
-              Expanded(child: ProgressStat('12', 'Treinamentos\nConcluídos')),
-              Expanded(child: ProgressStat('6', 'Treinamentos\nem Curso')),
-            ])),
+            child: LayoutBuilder(builder: (context, constraints) {
+              final ringSize = constraints.maxHeight * .68;
+              return Row(children: [
+                SizedBox(
+                    width: ringSize,
+                    height: ringSize,
+                    child: Stack(alignment: Alignment.center, children: [
+                      Positioned.fill(
+                          child: CircularProgressIndicator(
+                              value: .5,
+                              strokeWidth: ringSize * .085,
+                              backgroundColor: const Color(0xFFE5E7EB),
+                              color: _blue)),
+                      Text('50%',
+                          style: TextStyle(
+                              fontSize: ringSize * .20,
+                              color: const Color(0xFF000000)))
+                    ])),
+                const SizedBox(width: 22),
+                const Expanded(
+                    child: ProgressStat('12', 'Treinamentos\nConcluídos')),
+                const Expanded(
+                    child: ProgressStat('6', 'Treinamentos\nem Curso')),
+              ]);
+            })),
         const SizedBox(height: 10),
       ]);
 }
@@ -298,18 +349,29 @@ class ProgressStat extends StatelessWidget {
   final String value, label;
   const ProgressStat(this.value, this.label, {super.key});
   @override
-  Widget build(BuildContext context) => Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-        Text(label, textAlign: TextAlign.center, style: const TextStyle(fontSize: 8, color: Color(0xFF363C46))),
-        const SizedBox(height: 4),
-        Text(value, style: const TextStyle(color: _blue, fontSize: 18))
+  Widget build(BuildContext context) =>
+      Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+        Text(label,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+                fontSize: 10,
+                height: 1.1,
+                color: Color(0xFF363C46),
+                fontWeight: FontWeight.w600)),
+        const SizedBox(height: 7),
+        Text(value,
+            style: const TextStyle(
+                color: _blue, fontSize: 25, fontWeight: FontWeight.w500))
       ]);
 }
 
 class AdminProgress extends StatelessWidget {
   const AdminProgress({super.key});
   @override
-  Widget build(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('Treinamentos por usuário', style: TextStyle(color: _blue, fontSize: 18)),
+  Widget build(BuildContext context) =>
+      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Text('Treinamentos por usuário',
+            style: TextStyle(color: _blue, fontSize: 18)),
         const SizedBox(height: 10),
         Container(
             height: 150,
@@ -320,7 +382,10 @@ class AdminProgress extends StatelessWidget {
                   width: 95,
                   height: 95,
                   child: CircularProgressIndicator(
-                      value: .88, strokeWidth: 8, backgroundColor: Color(0xFFF1A114), color: Color(0xFF22BE62))),
+                      value: .88,
+                      strokeWidth: 8,
+                      backgroundColor: Color(0xFFF1A114),
+                      color: Color(0xFF22BE62))),
               const SizedBox(width: 18),
               Expanded(
                   child: Column(
@@ -356,19 +421,31 @@ class QuickGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final items = <QuickAction>[
-      QuickAction(PextAssets.chatbot, 'Assistente IA', () => go(context, ChatPage(admin: admin))),
-      QuickAction(PextAssets.glossary, 'Dicionário', () => go(context, TermsPage(admin: admin))),
-      QuickAction(PextAssets.recycling, 'Resinas', () => go(context, ResinsPage(admin: admin))),
-      QuickAction(PextAssets.training, 'Treinamentos', () => go(context, TrainingPage(admin: admin))),
-      QuickAction(PextAssets.problem, 'Problemas\ne Soluções', () => go(context, ProblemsPage(admin: admin))),
-      if (admin) QuickAction(PextAssets.dashboardActive, 'Dashboard', () => go(context, const DashboardPage())),
-      if (admin) QuickAction(PextAssets.product, 'Embalagens', () => go(context, const PackagingPage())),
+      QuickAction(PextAssets.chatbot, 'Assistente IA',
+          () => go(context, ChatPage(admin: admin))),
+      QuickAction(PextAssets.glossary, 'Dicionário',
+          () => go(context, TermsPage(admin: admin))),
+      QuickAction(PextAssets.recycling, 'Resinas',
+          () => go(context, ResinsPage(admin: admin))),
+      QuickAction(PextAssets.training, 'Treinamentos',
+          () => go(context, TrainingPage(admin: admin))),
+      QuickAction(PextAssets.problem, 'Problemas\ne Soluções',
+          () => go(context, ProblemsPage(admin: admin))),
+      if (admin)
+        QuickAction(PextAssets.dashboardActive, 'Dashboard',
+            () => go(context, const DashboardPage())),
+      if (admin)
+        QuickAction(PextAssets.product, 'Embalagens',
+            () => go(context, const PackagingPage())),
     ];
     return GridView.builder(
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 3, mainAxisSpacing: 14, crossAxisSpacing: 14, childAspectRatio: .95),
+            crossAxisCount: 3,
+            mainAxisSpacing: 14,
+            crossAxisSpacing: 14,
+            childAspectRatio: .88),
         itemCount: items.length,
         itemBuilder: (_, i) => items[i]);
   }
@@ -389,7 +466,9 @@ class QuickAction extends StatelessWidget {
           child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
             PextAssetIcon(asset, size: 47),
             const SizedBox(height: 5),
-            Text(label, textAlign: TextAlign.center, style: const TextStyle(color: _blue, fontSize: 11))
+            Text(label,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: _blue, fontSize: 11))
           ])));
 }
 
@@ -402,49 +481,152 @@ class SectionTitle extends StatelessWidget {
       child: Text(text, style: const TextStyle(color: _blue, fontSize: 17)));
 }
 
-BoxDecoration card() =>
-    BoxDecoration(color: Colors.white, border: Border.all(color: _line), borderRadius: BorderRadius.circular(11));
+BoxDecoration card() => BoxDecoration(
+    color: Colors.white,
+    border: Border.all(color: _line),
+    borderRadius: BorderRadius.circular(11));
 
 class TrainingCard extends StatelessWidget {
   final bool inProgress;
   const TrainingCard({super.key, required this.inProgress});
   @override
-  Widget build(BuildContext context) => Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(10),
-      decoration: card(),
-      child: Column(children: [
-        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          ClipRRect(borderRadius: BorderRadius.circular(9), child: Image.asset('images/training_extrusion.png', width: 58, height: 58, fit: BoxFit.cover)),
-          const SizedBox(width: 10),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [const Expanded(child: Text('Processo de extrusão', style: TextStyle(color: _blue, fontWeight: FontWeight.bold))), StatusPill(inProgress ? 'Em curso' : 'Concluído', inProgress ? const Color(0xFFF59E0B) : const Color(0xFF22C55E))]),
-            const Text('Módulo 2 - Temperatura e pressão', style: TextStyle(fontSize: 8, color: Color(0xFF6B7280))),
-            const SizedBox(height: 7),
-            Row(children: [Expanded(child: LinearProgressIndicator(value: inProgress ? .7 : 1, color: _blue, minHeight: 5, borderRadius: BorderRadius.circular(4))), const SizedBox(width: 6), Text(inProgress ? '70%' : '100%', style: const TextStyle(color: _blue, fontSize: 10))]),
-          ])),
-        ]),
-        if (!inProgress) ...[
-          const SizedBox(height: 10),
-          const _FailedTrainingNotice(),
-        ],
-      ]));
+  Widget build(BuildContext context) =>
+      LayoutBuilder(builder: (context, constraints) {
+        final wide = constraints.maxWidth >= 540;
+        final coverSize = wide ? 190.0 : 66.0;
+        final titleSize = wide ? 29.0 : 13.0;
+        final bodySize = wide ? 17.0 : 8.0;
+        final padding = wide ? 36.0 : 10.0;
+        return Container(
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: EdgeInsets.all(padding),
+            decoration: BoxDecoration(
+                color: Colors.white,
+                border: Border.all(color: _line, width: wide ? 3 : 1),
+                borderRadius: BorderRadius.circular(wide ? 30 : 11)),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              ClipRRect(
+                  borderRadius: BorderRadius.circular(wide ? 30 : 9),
+                  child: Image.asset('images/training_extrusion.png',
+                      width: coverSize, height: coverSize, fit: BoxFit.cover)),
+              SizedBox(width: wide ? 30 : 10),
+              Expanded(
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                    Row(children: [
+                      Expanded(
+                          child: Text('Processo de extrusão',
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                  color: _blue,
+                                  fontSize: titleSize,
+                                  fontWeight: FontWeight.bold))),
+                      StatusPill(
+                          inProgress ? 'Em curso' : 'Concluído',
+                          inProgress
+                              ? const Color(0xFFF59E0B)
+                              : const Color(0xFF22C55E),
+                          fontSize: wide ? 16 : 7),
+                    ]),
+                    SizedBox(height: wide ? 7 : 2),
+                    Text('Módulo 2 - Temperatura e pressão',
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                            fontSize: bodySize,
+                            color: const Color(0xFF6B7280))),
+                    SizedBox(height: wide ? 25 : 7),
+                    Row(children: [
+                      Expanded(
+                          child: LinearProgressIndicator(
+                              value: inProgress ? .7 : 1,
+                              color: _blue,
+                              minHeight: wide ? 16 : 5,
+                              borderRadius: BorderRadius.circular(9))),
+                      SizedBox(width: wide ? 10 : 6),
+                      Text(inProgress ? '70%' : '100%',
+                          style: TextStyle(
+                              color: _blue, fontSize: wide ? 29 : 10)),
+                      SizedBox(width: wide ? 22 : 5),
+                      SizedBox(
+                          height: wide ? 52 : 21,
+                          child: inProgress
+                              ? FilledButton(
+                                  onPressed: () {},
+                                  style: FilledButton.styleFrom(
+                                      minimumSize: Size.zero,
+                                      tapTargetSize:
+                                          MaterialTapTargetSize.shrinkWrap,
+                                      visualDensity: VisualDensity.compact,
+                                      padding: EdgeInsets.symmetric(
+                                          horizontal: wide ? 13 : 5),
+                                      backgroundColor: _blue),
+                                  child: Text('CONTINUAR',
+                                      style:
+                                          TextStyle(fontSize: wide ? 16 : 6)))
+                              : OutlinedButton(
+                                  onPressed: () {},
+                                  style: OutlinedButton.styleFrom(
+                                      minimumSize: Size.zero,
+                                      tapTargetSize:
+                                          MaterialTapTargetSize.shrinkWrap,
+                                      visualDensity: VisualDensity.compact,
+                                      padding: EdgeInsets.symmetric(
+                                          horizontal: wide ? 13 : 5),
+                                      side: const BorderSide(
+                                          color: Color(0xFFF59E0B))),
+                                  child: Text('REFAZER TESTE',
+                                      style: TextStyle(
+                                          color: const Color(0xFFF59E0B),
+                                          fontSize: wide ? 16 : 6)))),
+                    ]),
+                    if (!inProgress) ...[
+                      SizedBox(height: wide ? 10 : 5),
+                      Align(
+                          alignment: Alignment.centerLeft,
+                          child: FractionallySizedBox(
+                              widthFactor: wide ? .82 : .74,
+                              child: _FailedTrainingNotice(wide: wide)))
+                    ],
+                  ])),
+              SizedBox(width: wide ? 22 : 5),
+              Icon(Icons.favorite_border, color: _blue, size: wide ? 42 : 20),
+            ]));
+      });
 }
 
 class _FailedTrainingNotice extends StatelessWidget {
-  const _FailedTrainingNotice();
+  final bool wide;
+  const _FailedTrainingNotice({required this.wide});
   @override
   Widget build(BuildContext context) => Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-      decoration: BoxDecoration(color: const Color(0xFFFFE1AD), borderRadius: BorderRadius.circular(22)),
-      child: const Row(children: [
-        CircleAvatar(radius: 17, backgroundColor: Color(0xFFF59E0B), child: Icon(Icons.warning_amber_rounded, size: 23, color: Colors.white)),
-        SizedBox(width: 10),
-        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('Reprovado', style: TextStyle(color: Color(0xFF363C46), fontSize: 15, fontWeight: FontWeight.bold)),
-          SizedBox(height: 1),
-          Text('Você acertou 11 de 20 questões (55%).', style: TextStyle(color: Color(0xFF6B7280), fontSize: 10, fontWeight: FontWeight.w600)),
+      padding: EdgeInsets.symmetric(
+          horizontal: wide ? 16 : 5, vertical: wide ? 10 : 3),
+      decoration: BoxDecoration(
+          color: const Color(0xFFFFE1AD),
+          borderRadius: BorderRadius.circular(wide ? 19 : 8)),
+      child: Row(children: [
+        CircleAvatar(
+            radius: wide ? 12 : 7,
+            backgroundColor: const Color(0xFFF59E0B),
+            child: Icon(Icons.warning_amber_rounded,
+                size: wide ? 17 : 10, color: Colors.white)),
+        SizedBox(width: wide ? 10 : 4),
+        Expanded(
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('Reprovado',
+              style: TextStyle(
+                  color: const Color(0xFF363C46),
+                  fontSize: wide ? 14 : 8,
+                  fontWeight: FontWeight.bold)),
+          SizedBox(height: wide ? 2 : 0),
+          Text('Você acertou 11 de 20 questões (55%).',
+              style: TextStyle(
+                  color: const Color(0xFF6B7280),
+                  fontSize: wide ? 10 : 5,
+                  fontWeight: FontWeight.w600)),
         ])),
       ]));
 }
@@ -452,12 +634,19 @@ class _FailedTrainingNotice extends StatelessWidget {
 class StatusPill extends StatelessWidget {
   final String text;
   final Color color;
-  const StatusPill(this.text, this.color, {super.key});
+  final double fontSize;
+  const StatusPill(this.text, this.color, {super.key, this.fontSize = 7});
   @override
   Widget build(BuildContext context) => Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-      decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(4)),
-      child: Text(text, style: const TextStyle(fontSize: 7, color: Colors.white, fontWeight: FontWeight.bold)));
+      padding: EdgeInsets.symmetric(
+          horizontal: fontSize * 1.1, vertical: fontSize * .28),
+      decoration:
+          BoxDecoration(color: color, borderRadius: BorderRadius.circular(4)),
+      child: Text(text,
+          style: TextStyle(
+              fontSize: fontSize,
+              color: Colors.white,
+              fontWeight: FontWeight.bold)));
 }
 
 class PageFrame extends StatelessWidget {
@@ -465,7 +654,12 @@ class PageFrame extends StatelessWidget {
   final Widget child;
   final bool admin;
   final int selected;
-  const PageFrame({super.key, required this.title, required this.child, this.admin = false, this.selected = 2});
+  const PageFrame(
+      {super.key,
+      required this.title,
+      required this.child,
+      this.admin = false,
+      this.selected = 2});
   @override
   Widget build(BuildContext context) => AppShell(
       admin: admin,
@@ -474,11 +668,16 @@ class PageFrame extends StatelessWidget {
         Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
             child: Row(children: [
-              IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.arrow_back_ios_new, size: 18)),
+              IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.chevron_left, size: 32)),
               Expanded(
                   child: Text(title,
                       textAlign: TextAlign.center,
-                      style: const TextStyle(color: _blue, fontSize: 20, fontWeight: FontWeight.w600))),
+                      style: const TextStyle(
+                          color: _blue,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w600))),
               const SizedBox(width: 42)
             ])),
         Expanded(child: child)
@@ -491,44 +690,293 @@ class FavoritesPage extends StatelessWidget {
   Widget build(BuildContext context) => PageFrame(
       title: 'Favoritos',
       selected: 1,
-      child: ListView(padding: const EdgeInsets.symmetric(horizontal: 38), children: const [
-        FavoriteSection('Resinas', PextAssets.recycling, ['PEBD', 'PEBD', 'PEBD']),
-        FavoriteSection('Treinamentos', PextAssets.training,
-            ['Processo de extrusão', 'Processo de extrusão', 'Processo de extrusão']),
-        FavoriteSection('Termos', PextAssets.glossary, ['PEBD', 'PEBD'])
+      child: const SingleChildScrollView(
+          padding: EdgeInsets.symmetric(horizontal: 16),
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            FavoriteSectionHeader('Resinas', PextAssets.recycling),
+            FavoriteResinCard(),
+            FavoriteResinCard(),
+            FavoriteResinCard(),
+            FavoriteSectionButton('Ver todas as resinas favoritas'),
+            FavoriteDivider(),
+            FavoriteSectionHeader('Treinamentos', PextAssets.training),
+            FavoriteTrainingCard(status: FavoriteTrainingStatus.inProgress),
+            FavoriteTrainingCard(status: FavoriteTrainingStatus.dropped),
+            FavoriteTrainingCard(status: FavoriteTrainingStatus.completed),
+            FavoriteSectionButton('Ver todos os treinamentos favoritos'),
+            FavoriteDivider(),
+            FavoriteSectionHeader('Termos', PextAssets.glossary),
+            FavoriteTermCard(initials: 'P', color: Color(0xFF0A9B53)),
+            FavoriteTermCard(initials: 'PE', color: Color(0xFFA36BE2)),
+            SizedBox(height: 18),
+          ])));
+}
+
+class FavoriteSectionHeader extends StatelessWidget {
+  final String title, asset;
+  const FavoriteSectionHeader(this.title, this.asset, {super.key});
+  @override
+  Widget build(BuildContext context) => Padding(
+      padding: const EdgeInsets.only(top: 14, bottom: 10),
+      child: Row(children: [
+        Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+                color: Colors.white,
+                border: Border.all(color: const Color(0xFF9CA3AF)),
+                borderRadius: BorderRadius.circular(12)),
+            child: Padding(
+                padding: const EdgeInsets.all(7),
+                child: PextAssetIcon(asset, size: 24))),
+        const SizedBox(width: 12),
+        Text(title,
+            style: const TextStyle(
+                color: _blue, fontSize: 18, fontWeight: FontWeight.bold)),
       ]));
 }
 
-class FavoriteSection extends StatelessWidget {
-  final String title;
-  final String asset;
-  final List<String> items;
-  const FavoriteSection(this.title, this.asset, this.items, {super.key});
-
+class FavoriteResinCard extends StatelessWidget {
+  const FavoriteResinCard({super.key});
   @override
-  Widget build(BuildContext context) => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-              padding: const EdgeInsets.only(top: 7, bottom: 8),
-              child: Row(children: [
-                PextAssetIcon(asset, size: 25),
-                const SizedBox(width: 10),
-                Text(title, style: const TextStyle(color: _blue, fontWeight: FontWeight.bold))
+  Widget build(BuildContext context) => Container(
+      margin: const EdgeInsets.only(bottom: 7),
+      padding: const EdgeInsets.all(9),
+      decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: _line),
+          borderRadius: BorderRadius.circular(16)),
+      child: Row(children: [
+        Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+                border: Border.all(color: const Color(0xFF8B9099), width: 1.5),
+                borderRadius: BorderRadius.circular(12)),
+            child: const Padding(
+                padding: EdgeInsets.all(8),
+                child: PextAssetIcon(PextAssets.resin, size: 30))),
+        const SizedBox(width: 10),
+        const Expanded(
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('PEBD',
+              style: TextStyle(
+                  color: _blue, fontSize: 17, fontWeight: FontWeight.bold)),
+          Text('Polietileno de Baixa Densidade',
+              style: TextStyle(color: Color(0xFF6B7280), fontSize: 9))
+        ])),
+        const PextAssetIcon(PextAssets.heartActive, size: 25),
+      ]));
+}
+
+class FavoriteSectionButton extends StatelessWidget {
+  final String label;
+  const FavoriteSectionButton(this.label, {super.key});
+  @override
+  Widget build(BuildContext context) => Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: OutlinedButton(
+          onPressed: () {},
+          style: OutlinedButton.styleFrom(
+              minimumSize: const Size.fromHeight(38),
+              side: const BorderSide(color: Color(0xFF4DA3FF), width: 1.5),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12))),
+          child: Text(label,
+              style:
+                  const TextStyle(color: _blue, fontWeight: FontWeight.bold))));
+}
+
+class FavoriteDivider extends StatelessWidget {
+  const FavoriteDivider({super.key});
+  @override
+  Widget build(BuildContext context) => const Padding(
+      padding: EdgeInsets.only(top: 12),
+      child: Divider(height: 1, thickness: 1, color: Color(0xFF6B7280)));
+}
+
+enum FavoriteTrainingStatus { inProgress, dropped, completed }
+
+class FavoriteTrainingCard extends StatelessWidget {
+  final FavoriteTrainingStatus status;
+  const FavoriteTrainingCard({super.key, required this.status});
+  @override
+  Widget build(BuildContext context) {
+    final inProgress = status == FavoriteTrainingStatus.inProgress;
+    final dropped = status == FavoriteTrainingStatus.dropped;
+    final completed = status == FavoriteTrainingStatus.completed;
+    final badgeText = inProgress
+        ? 'Em curso'
+        : dropped
+            ? 'Desistência'
+            : 'Concluído';
+    final badgeColor = inProgress
+        ? const Color(0xFFF59E0B)
+        : dropped
+            ? const Color(0xFFEF4444)
+            : const Color(0xFF22C55E);
+    final progress = inProgress
+        ? .7
+        : completed
+            ? 1.0
+            : 0.0;
+    return Container(
+        margin: const EdgeInsets.only(bottom: 9),
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border.all(color: _line),
+            borderRadius: BorderRadius.circular(16)),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.asset('images/training_extrusion.png',
+                  width: 64, height: 64, fit: BoxFit.cover)),
+          const SizedBox(width: 10),
+          Expanded(
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                Row(children: [
+                  const Expanded(
+                      child: Text('Processo de ...',
+                          style: TextStyle(
+                              color: _blue, fontWeight: FontWeight.bold))),
+                  StatusPill(badgeText, badgeColor)
+                ]),
+                const Text('Módulo 2 - Temperatura de...',
+                    style: TextStyle(color: Color(0xFF6B7280), fontSize: 8)),
+                const SizedBox(height: 7),
+                Row(children: [
+                  Expanded(
+                      child: LinearProgressIndicator(
+                          value: progress,
+                          minHeight: 5,
+                          borderRadius: BorderRadius.circular(5),
+                          color: _blue,
+                          backgroundColor: const Color(0xFFE5E7EB))),
+                  const SizedBox(width: 5),
+                  Text('${(progress * 100).round()}%',
+                      style: const TextStyle(color: _blue, fontSize: 10)),
+                  if (!completed) ...[
+                    const SizedBox(width: 7),
+                    _FavoriteAction(
+                        label: inProgress ? 'CONTINUAR' : 'RETOMAR',
+                        outlined: dropped)
+                  ]
+                ]),
+                if (dropped)
+                  const _FavoriteTrainingAlert(
+                      asset: PextAssets.tryAgain,
+                      text:
+                          'Você parou de estudar. Retome de onde parou para continuar seu progresso.',
+                      background: Color(0xFFFFE8E8),
+                      foreground: Color(0xFFEF4444)),
+                if (completed)
+                  const _FavoriteTrainingAlert(
+                      asset: PextAssets.approved,
+                      text: 'Aprovado - Você acertou 18 de 20 questões (90%).',
+                      background: Color(0xFFB5F7B5),
+                      foreground: Color(0xFF22A852)),
               ])),
-          ...items.map((item) => ListTile(
-              dense: true,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 9),
-              shape:
-                  RoundedRectangleBorder(borderRadius: BorderRadius.circular(10), side: const BorderSide(color: _line)),
-              leading: PextAssetIcon(asset, size: 26),
-              title: Text(item, style: const TextStyle(color: _blue, fontWeight: FontWeight.bold)),
-              subtitle: const Text('Polietileno de Baixa Densidade', style: TextStyle(fontSize: 7)),
-              trailing: const PextAssetIcon(PextAssets.heartActive, size: 20))),
-          const SizedBox(height: 7),
-          OutlinedButton(onPressed: () {}, child: Text('Ver todas as $title favoritas')),
-        ],
-      );
+          const SizedBox(width: 7),
+          const PextAssetIcon(PextAssets.heartActive, size: 22),
+        ]));
+  }
+}
+
+class _FavoriteAction extends StatelessWidget {
+  final String label;
+  final bool outlined;
+  const _FavoriteAction({required this.label, required this.outlined});
+  @override
+  Widget build(BuildContext context) => SizedBox(
+      height: 23,
+      child: outlined
+          ? OutlinedButton(
+              onPressed: () {},
+              style: OutlinedButton.styleFrom(
+                  minimumSize: Size.zero,
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  side: const BorderSide(color: Color(0xFFEF4444))),
+              child: Text(label,
+                  style:
+                      const TextStyle(color: Color(0xFFEF4444), fontSize: 7)))
+          : FilledButton(
+              onPressed: () {},
+              style: FilledButton.styleFrom(
+                  minimumSize: Size.zero,
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  backgroundColor: _blue),
+              child: Text(label, style: const TextStyle(fontSize: 7))));
+}
+
+class _FavoriteTrainingAlert extends StatelessWidget {
+  final String asset, text;
+  final Color background, foreground;
+  const _FavoriteTrainingAlert(
+      {required this.asset,
+      required this.text,
+      required this.background,
+      required this.foreground});
+  @override
+  Widget build(BuildContext context) => Container(
+      margin: const EdgeInsets.only(top: 7),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+      decoration: BoxDecoration(
+          color: background, borderRadius: BorderRadius.circular(7)),
+      child: Row(children: [
+        PextAssetIcon(asset, size: 12),
+        const SizedBox(width: 4),
+        Expanded(
+            child: Text(text,
+                style: TextStyle(
+                    color: foreground,
+                    fontSize: 6,
+                    fontWeight: FontWeight.w600)))
+      ]));
+}
+
+class FavoriteTermCard extends StatelessWidget {
+  final String initials;
+  final Color color;
+  const FavoriteTermCard(
+      {super.key, required this.initials, required this.color});
+  @override
+  Widget build(BuildContext context) => Container(
+      margin: const EdgeInsets.only(bottom: 7),
+      padding: const EdgeInsets.all(9),
+      decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: _line),
+          borderRadius: BorderRadius.circular(16)),
+      child: Row(children: [
+        Container(
+            width: 48,
+            height: 48,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+                border: Border.all(color: const Color(0xFF8B9099), width: 1.5),
+                borderRadius: BorderRadius.circular(12)),
+            child: Text(initials,
+                style: TextStyle(
+                    color: color, fontSize: 21, fontWeight: FontWeight.bold))),
+        const SizedBox(width: 10),
+        const Expanded(
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('PEBD',
+              style: TextStyle(
+                  color: _blue, fontSize: 17, fontWeight: FontWeight.bold)),
+          Text('Polietileno de Baixa Densidade',
+              style: TextStyle(color: Color(0xFF6B7280), fontSize: 9))
+        ])),
+        const PextAssetIcon(PextAssets.heartActive, size: 25)
+      ]));
 }
 
 class SimpleListPage extends StatelessWidget {
@@ -555,17 +1003,22 @@ class SimpleListPage extends StatelessWidget {
                 hintText: 'Buscar',
                 filled: true,
                 fillColor: Colors.white,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none))),
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide.none))),
         const SizedBox(height: 14),
         ...List.generate(
             6,
             (i) => Card(
                 child: ListTile(
                     onTap: () => showDialog(
-                        context: context, builder: (_) => InfoDialog(title: title, description: description)),
+                        context: context,
+                        builder: (_) =>
+                            InfoDialog(title: title, description: description)),
                     leading: Icon(icon, color: _blue),
                     title: Text(i == 0 ? 'PEBD' : '$title ${i + 1}',
-                        style: const TextStyle(color: _blue, fontWeight: FontWeight.bold)),
+                        style: const TextStyle(
+                            color: _blue, fontWeight: FontWeight.bold)),
                     subtitle: Text(description),
                     trailing: admin
                         ? const Icon(Icons.edit_outlined, color: _blue)
@@ -575,7 +1028,9 @@ class SimpleListPage extends StatelessWidget {
               onPressed: () => showDialog(
                   context: context,
                   builder: (_) => InfoDialog(
-                      title: 'Adicionar $title', description: 'Formulário visual para cadastrar um novo registro.')),
+                      title: 'Adicionar $title',
+                      description:
+                          'Formulário visual para cadastrar um novo registro.')),
               icon: const Icon(Icons.add),
               label: const Text('Adicionar'))
       ]));
@@ -637,7 +1092,9 @@ class ChatBubble extends StatelessWidget {
               color: mine ? _blue : Colors.white,
               borderRadius: BorderRadius.circular(12),
               border: mine ? null : Border.all(color: _line)),
-          child: Text(text, style: TextStyle(color: mine ? Colors.white : const Color(0xFF26313D)))));
+          child: Text(text,
+              style: TextStyle(
+                  color: mine ? Colors.white : const Color(0xFF26313D)))));
 }
 
 class ProfilePage extends StatelessWidget {
@@ -655,22 +1112,31 @@ class DashboardPage extends StatelessWidget {
       admin: true,
       selected: 1,
       child: ListView(padding: const EdgeInsets.all(18), children: [
-        const Text('Indicadores de treinamento', style: TextStyle(color: _blue, fontSize: 18)),
+        const Text('Indicadores de treinamento',
+            style: TextStyle(color: _blue, fontSize: 18)),
         const SizedBox(height: 12),
         Container(
             height: 180,
             decoration: card(),
-            child: const Center(child: Icon(Icons.bar_chart, size: 125, color: _blue))),
+            child: const Center(
+                child: Icon(Icons.bar_chart, size: 125, color: _blue))),
         const SizedBox(height: 18),
-        Row(children: const [Metric('Usuários ativos', '32'), SizedBox(width: 10), Metric('Aprovação média', '82%')]),
+        Row(children: const [
+          Metric('Usuários ativos', '32'),
+          SizedBox(width: 10),
+          Metric('Aprovação média', '82%')
+        ]),
         const SizedBox(height: 18),
-        const Text('Últimas atividades', style: TextStyle(color: _blue, fontSize: 18)),
+        const Text('Últimas atividades',
+            style: TextStyle(color: _blue, fontSize: 18)),
         ...[
           'Ana concluiu Processo de extrusão',
           'Jorge atualizou a resina PEBD',
           'Novo ticket de suporte criado'
-        ].map((x) =>
-            ListTile(leading: const Icon(Icons.history, color: _blue), title: Text(x), subtitle: const Text('Hoje')))
+        ].map((x) => ListTile(
+            leading: const Icon(Icons.history, color: _blue),
+            title: Text(x),
+            subtitle: const Text('Hoje')))
       ]));
 }
 
@@ -683,8 +1149,12 @@ class Metric extends StatelessWidget {
           padding: const EdgeInsets.all(14),
           decoration: card(),
           child: Column(children: [
-            Text(value, style: const TextStyle(color: _blue, fontSize: 26, fontWeight: FontWeight.bold)),
-            Text(title, textAlign: TextAlign.center, style: const TextStyle(fontSize: 11))
+            Text(value,
+                style: const TextStyle(
+                    color: _blue, fontSize: 26, fontWeight: FontWeight.bold)),
+            Text(title,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 11))
           ])));
 }
 
@@ -693,7 +1163,11 @@ class InfoDialog extends StatelessWidget {
   const InfoDialog({super.key, required this.title, required this.description});
   @override
   Widget build(BuildContext context) => AlertDialog(
-      title: Text(title, style: const TextStyle(color: _blue)),
-      content: Text(description),
-      actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Fechar'))]);
+          title: Text(title, style: const TextStyle(color: _blue)),
+          content: Text(description),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Fechar'))
+          ]);
 }
