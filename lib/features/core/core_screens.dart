@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../app_routes.dart';
 import '../../widgets/pext_asset_icon.dart';
 
 const _blue = Color(0xFF053488);
@@ -49,16 +50,27 @@ class _TermsDictionaryScreenState extends State<TermsDictionaryScreen> {
                 icon: Icons.add, onTap: () => _termDialog(context))
             : const _BoxedHeaderAction(icon: Icons.favorite_border),
         child: Column(children: [
-          TextField(
-              onChanged: (value) => setState(() => _query = value),
-              decoration: const InputDecoration(
-                  prefixIcon: PextAssetIcon(PextAssets.search, size: 21),
-                  hintText: 'Ex: Coextrusão',
-                  filled: true,
-                  fillColor: Colors.white,
-                  border: OutlineInputBorder(
-                      borderRadius: BorderRadius.all(Radius.circular(13)),
-                      borderSide: BorderSide(color: _border)))),
+          SizedBox(
+              height: 44,
+              child: TextField(
+                  onChanged: (value) => setState(() => _query = value),
+                  decoration: const InputDecoration(
+                      isDense: true,
+                      contentPadding:
+                          EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      prefixIcon: PextAssetIcon(PextAssets.search, size: 21),
+                      hintText: 'Ex: Coextrusão',
+                      filled: true,
+                      fillColor: Colors.white,
+                      enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.all(Radius.circular(13)),
+                          borderSide: BorderSide(color: _border)),
+                      focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.all(Radius.circular(13)),
+                          borderSide: BorderSide(color: _border)),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.all(Radius.circular(13)),
+                          borderSide: BorderSide(color: _border))))),
           const SizedBox(height: 14),
           Expanded(
               child: items.isEmpty
@@ -285,7 +297,7 @@ class TrainingDetailScreen extends StatelessWidget {
                   onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(
-                          builder: (_) => const LessonDetailScreen())))),
+                          builder: (_) => LessonDetailScreen(admin: admin))))),
         ]),
       );
 }
@@ -360,7 +372,6 @@ class _CourseMetric extends StatelessWidget {
   const _CourseMetric(this.icon, this.value, this.label, this.color);
   @override
   Widget build(BuildContext context) => Container(
-      height: 62,
       padding: const EdgeInsets.all(7),
       decoration: _card(),
       child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
@@ -434,7 +445,8 @@ class _CourseModule extends StatelessWidget {
 }
 
 class LessonDetailScreen extends StatefulWidget {
-  const LessonDetailScreen({super.key});
+  final bool admin;
+  const LessonDetailScreen({super.key, this.admin = false});
   @override
   State<LessonDetailScreen> createState() => _LessonDetailScreenState();
 }
@@ -444,7 +456,15 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
   @override
   Widget build(BuildContext context) => _Shell(
         title: 'Processos de ...',
-        action: const _BoxedHeaderAction(icon: Icons.favorite_border),
+        admin: widget.admin,
+        action: widget.admin
+            ? _BoxedHeaderAction(
+                icon: Icons.edit_outlined,
+                onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const ModuleEditorScreen())))
+            : const _BoxedHeaderAction(icon: Icons.favorite_border),
         child: Column(children: [
           _TabBar(
               labels: const ['Conteúdo', 'Documentação'],
@@ -456,6 +476,25 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
       );
 
   Widget _lessonContent() => ListView(children: [
+        if (widget.admin)
+          Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Row(children: [
+                Expanded(
+                    child: OutlinedButton.icon(
+                        onPressed: () {},
+                        icon: const Icon(Icons.delete_outline),
+                        label: const Text('EXCLUIR CONTEÚDO'))),
+                const SizedBox(width: 8),
+                Expanded(
+                    child: OutlinedButton.icon(
+                        onPressed: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) => const ModuleEditorScreen())),
+                        icon: const Icon(Icons.edit_outlined),
+                        label: const Text('EDITAR CONTEÚDO'))),
+              ])),
         Container(
             padding: const EdgeInsets.all(14),
             decoration: _card(),
@@ -619,7 +658,9 @@ class _ExamScreenState extends State<ExamScreen> {
       action: _BoxedHeaderAction(
           icon: Icons.menu,
           onTap: () => showModalBottomSheet(
-              context: context, builder: (_) => const _QuestionNavigator())),
+              context: context,
+              isScrollControlled: true,
+              builder: (_) => const _QuestionNavigator())),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         const _QuestionSteps(),
         const SizedBox(height: 18),
@@ -760,7 +801,8 @@ class _QuestionNavigator extends StatelessWidget {
   const _QuestionNavigator();
   @override
   Widget build(BuildContext context) => SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
+            child: Padding(
           padding: const EdgeInsets.fromLTRB(28, 20, 28, 24),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             Row(children: [
@@ -836,7 +878,7 @@ class _QuestionNavigator extends StatelessWidget {
                             builder: (_) => const FinalExamSummaryScreen())),
                     child: const Text('FINALIZAR TESTE'))),
           ]),
-        ),
+        )),
       );
 }
 
@@ -863,7 +905,9 @@ class FinalExamSummaryScreen extends StatelessWidget {
         action: _BoxedHeaderAction(
             icon: Icons.menu,
             onTap: () => showModalBottomSheet(
-                context: context, builder: (_) => const _QuestionNavigator())),
+                context: context,
+                isScrollControlled: true,
+                builder: (_) => const _QuestionNavigator())),
         child: ListView(children: [
           const Row(children: [
             Expanded(
@@ -1073,8 +1117,8 @@ class RetakeExamScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) => _Shell(
       title: 'Refazer Avaliação',
-      child: Column(children: [
-        const Spacer(),
+      child: ListView(children: [
+        const SizedBox(height: 54),
         const CircleAvatar(
             radius: 82,
             backgroundColor: Color(0xFFFFD9A9),
@@ -1111,7 +1155,7 @@ class RetakeExamScreen extends StatelessWidget {
                           color: Color(0xFFFF7A00),
                           fontWeight: FontWeight.bold))
                 ])),
-        const Spacer(),
+        const SizedBox(height: 54),
         SizedBox(
             width: double.infinity,
             child: FilledButton(
@@ -1122,6 +1166,7 @@ class RetakeExamScreen extends StatelessWidget {
             width: double.infinity,
             child: OutlinedButton(
                 onPressed: () {}, child: const Text('REVER MÓDULO'))),
+        const SizedBox(height: 6),
       ]));
 }
 
@@ -1141,7 +1186,7 @@ class _TrainingEditorScreenState extends State<TrainingEditorScreen> {
           _TabBar(
               labels: const ['Visão Geral', 'Módulos', 'Avaliação'],
               value: tab,
-              onChanged: (value) => setState(() => tab = value)),
+              onChanged: _openEditorSection),
           const SizedBox(height: 18),
           Expanded(
               child: tab == 0
@@ -1212,6 +1257,20 @@ class _TrainingEditorScreenState extends State<TrainingEditorScreen> {
                     onPressed: () => Navigator.pop(context),
                     child: const Text('FECHAR'))
               ]));
+
+  void _openEditorSection(int value) {
+    if (value == 1) {
+      Navigator.push(context,
+          MaterialPageRoute(builder: (_) => const ModuleEditorScreen()));
+      return;
+    }
+    if (value == 2) {
+      Navigator.push(context,
+          MaterialPageRoute(builder: (_) => const AdminQuestionListScreen()));
+      return;
+    }
+    setState(() => tab = value);
+  }
 }
 
 class ModuleEditorScreen extends StatelessWidget {
@@ -1542,7 +1601,7 @@ class _CoreBottomBar extends StatelessWidget {
                   label: 'Treinamento',
                   active: selected == 0,
                   onTap: () =>
-                      _replaceWith(context, TrainingListScreen(admin: admin))),
+                      _goToRoot(context, PextRoutes.training, admin: admin)),
               _CoreNavItem(
                   asset: admin ? PextAssets.dashboard : PextAssets.heart,
                   activeAsset: admin
@@ -1550,38 +1609,38 @@ class _CoreBottomBar extends StatelessWidget {
                       : PextAssets.heartActive,
                   label: admin ? 'Dashboard' : 'Favoritos',
                   active: selected == 1,
-                  onTap: () =>
-                      Navigator.of(context).popUntil((route) => route.isFirst)),
+                  onTap: () => _goToRoot(context,
+                      admin ? PextRoutes.dashboard : PextRoutes.favorites,
+                      admin: admin)),
               _CoreNavItem(
                   asset: PextAssets.home,
                   activeAsset: PextAssets.homeActive,
                   label: 'Home',
                   active: selected == 2,
                   onTap: () =>
-                      Navigator.of(context).popUntil((route) => route.isFirst)),
+                      _goToRoot(context, PextRoutes.home, admin: admin)),
               _CoreNavItem(
                   asset: PextAssets.chat,
                   activeAsset: PextAssets.chatActive,
                   label: 'Chat',
                   active: selected == 3,
                   onTap: () =>
-                      _replaceWith(context, ChatAssistantScreen(admin: admin))),
+                      _goToRoot(context, PextRoutes.chat, admin: admin)),
               _CoreNavItem(
                   asset: PextAssets.profile,
                   activeAsset: PextAssets.profileActive,
                   label: 'Perfil',
                   active: selected == 4,
                   onTap: () =>
-                      _replaceWith(context, UserProfileScreen(admin: admin))),
+                      _goToRoot(context, PextRoutes.profile, admin: admin)),
             ])),
       );
-
-  void _replaceWith(BuildContext context, Widget page) =>
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => page),
-        (route) => false,
-      );
 }
+
+void _goToRoot(BuildContext context, String route, {bool admin = false}) =>
+    Navigator.of(context).pushNamedAndRemoveUntil(
+        route, (currentRoute) => false,
+        arguments: PextRouteArgs(admin: admin));
 
 class _CoreNavItem extends StatelessWidget {
   final String asset, activeAsset, label;
@@ -1730,20 +1789,20 @@ class _TrainingTile extends StatelessWidget {
                     ]),
                     if (status == 1)
                       const _TrainingContextBanner(
-                        icon: Icons.restart_alt,
+                        asset: PextAssets.tryAgain,
                         color: Color(0xFFF04444),
                         text: 'Você parou de estudar. Retome de onde parou.',
                       ),
                     if (status == 2)
                       const _TrainingContextBanner(
-                        icon: Icons.star,
+                        asset: PextAssets.approved,
                         color: Color(0xFF1AB65C),
                         text:
                             'Aprovado - Você acertou 18 de 20 questões (90%).',
                       ),
                     if (status == 3)
                       const _TrainingContextBanner(
-                        icon: Icons.warning_amber_rounded,
+                        asset: PextAssets.warning,
                         color: Color(0xFFF0A000),
                         text:
                             'Reprovado - Você acertou 11 de 20 questões (55%).',
@@ -1756,11 +1815,11 @@ class _TrainingTile extends StatelessWidget {
 }
 
 class _TrainingContextBanner extends StatelessWidget {
-  final IconData icon;
+  final String asset;
   final Color color;
   final String text;
   const _TrainingContextBanner(
-      {required this.icon, required this.color, required this.text});
+      {required this.asset, required this.color, required this.text});
   @override
   Widget build(BuildContext context) => Container(
         margin: const EdgeInsets.only(top: 7),
@@ -1769,7 +1828,7 @@ class _TrainingContextBanner extends StatelessWidget {
             color: color.withValues(alpha: .14),
             borderRadius: BorderRadius.circular(7)),
         child: Row(children: [
-          Icon(icon, color: color, size: 13),
+          PextAssetIcon(asset, size: 13),
           const SizedBox(width: 4),
           Expanded(
               child: Text(text,

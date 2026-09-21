@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'app_routes.dart';
 import 'features/core/core_screens.dart';
 import 'features/resins/resins_screens.dart';
 import 'features/troubleshooting/troubleshooting_screens.dart';
@@ -24,6 +25,21 @@ class PextApp extends StatelessWidget {
           fontFamily: 'Arial',
         ),
         home: const LoginPage(),
+        onGenerateRoute: (settings) {
+          final args = settings.arguments is PextRouteArgs
+              ? settings.arguments as PextRouteArgs
+              : const PextRouteArgs();
+          final page = switch (settings.name) {
+            PextRoutes.home => HomePage(admin: args.admin),
+            PextRoutes.training => TrainingPage(admin: args.admin),
+            PextRoutes.favorites => const FavoritesPage(),
+            PextRoutes.dashboard => const DashboardPage(),
+            PextRoutes.chat => ChatPage(admin: args.admin),
+            PextRoutes.profile => ProfilePage(admin: args.admin),
+            _ => const LoginPage(),
+          };
+          return MaterialPageRoute(builder: (_) => page, settings: settings);
+        },
       );
 }
 
@@ -172,39 +188,45 @@ class AppShell extends StatelessWidget {
                   activeAsset: PextAssets.educationActive,
                   text: 'Treinamento',
                   active: selected == 0,
-                  onTap: () => go(context, TrainingPage(admin: admin))),
+                  onTap: () => goToDestination(context, PextRoutes.training,
+                      admin: admin)),
               if (admin)
                 NavItem(
                     asset: PextAssets.dashboard,
                     activeAsset: PextAssets.dashboardActive,
                     text: 'Dashboard',
                     active: selected == 1,
-                    onTap: () => go(context, const DashboardPage()))
+                    onTap: () => goToDestination(context, PextRoutes.dashboard,
+                        admin: true))
               else
                 NavItem(
                     asset: PextAssets.heart,
                     activeAsset: PextAssets.heartActive,
                     text: 'Favoritos',
                     active: selected == 1,
-                    onTap: () => go(context, const FavoritesPage())),
+                    onTap: () =>
+                        goToDestination(context, PextRoutes.favorites)),
               NavItem(
                   asset: PextAssets.home,
                   activeAsset: PextAssets.homeActive,
                   text: 'Home',
                   active: selected == 2,
-                  onTap: () => go(context, HomePage(admin: admin))),
+                  onTap: () =>
+                      goToDestination(context, PextRoutes.home, admin: admin)),
               NavItem(
                   asset: PextAssets.chat,
                   activeAsset: PextAssets.chatActive,
                   text: 'Chat',
                   active: selected == 3,
-                  onTap: () => go(context, ChatPage(admin: admin))),
+                  onTap: () =>
+                      goToDestination(context, PextRoutes.chat, admin: admin)),
               NavItem(
                   asset: PextAssets.profile,
                   activeAsset: PextAssets.profileActive,
                   text: 'Perfil',
                   active: selected == 4,
-                  onTap: () => go(context, ProfilePage(admin: admin))),
+                  onTap: () => goToDestination(context, PextRoutes.profile,
+                      admin: admin)),
             ]),
           ),
         ),
@@ -215,6 +237,14 @@ void go(BuildContext context, Widget page) =>
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => page),
       (route) => false,
+    );
+
+void goToDestination(BuildContext context, String route,
+        {bool admin = false}) =>
+    Navigator.of(context).pushNamedAndRemoveUntil(
+      route,
+      (currentRoute) => false,
+      arguments: PextRouteArgs(admin: admin),
     );
 
 class NavItem extends StatelessWidget {
