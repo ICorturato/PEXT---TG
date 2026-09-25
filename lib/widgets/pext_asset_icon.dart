@@ -14,6 +14,7 @@ class PextAssets {
   static const favorite = 'icons/common/favorite_2.png';
   static const favoriteActive = 'icons/common/favorite.png';
   static const edit = 'icons/common/edit_2.png';
+  static const trash = 'icons/common/trash.png';
   static const pdf = 'icons/common/pdf.png';
   static const check = 'icons/common/check.png';
   static const approved = 'icons/common/aproved.png';
@@ -25,6 +26,7 @@ class PextAssets {
   static const recycling = 'icons/home/simbolo_de_reciclagem_1.png';
   static const training = 'icons/home/treinamento.png';
   static const problem = 'icons/home/problema.png';
+  static const dashb = 'icons/home/dashboard.png';
   static const density = 'icons/resins/density.png';
   static const temperature = 'icons/resins/high_temperature.png';
   static const mfi = 'icons/resins/mfi.png';

@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'app_routes.dart';
 import 'features/core/core_screens.dart';
@@ -23,6 +25,11 @@ class PextApp extends StatelessWidget {
           scaffoldBackgroundColor: _canvas,
           colorScheme: ColorScheme.fromSeed(seedColor: _blue),
           fontFamily: 'Arial',
+          textTheme: const TextTheme(
+            bodyLarge: TextStyle(fontSize: 16),
+            bodyMedium: TextStyle(fontSize: 14),
+            bodySmall: TextStyle(fontSize: 12),
+          ),
         ),
         home: const LoginPage(),
         onGenerateRoute: (settings) {
@@ -33,7 +40,8 @@ class PextApp extends StatelessWidget {
             PextRoutes.home => HomePage(admin: args.admin),
             PextRoutes.training => TrainingPage(admin: args.admin),
             PextRoutes.favorites => const FavoritesPage(),
-            PextRoutes.dashboard => const DashboardPage(),
+            PextRoutes.dashboard =>
+              args.admin ? const DashboardPage() : const HomePage(),
             PextRoutes.chat => ChatPage(admin: args.admin),
             PextRoutes.profile => ProfilePage(admin: args.admin),
             _ => const LoginPage(),
@@ -247,6 +255,15 @@ void goToDestination(BuildContext context, String route,
       arguments: PextRouteArgs(admin: admin),
     );
 
+void _pageSafeBack(BuildContext context, {required bool admin}) {
+  final navigator = Navigator.of(context);
+  if (navigator.canPop()) {
+    navigator.pop();
+    return;
+  }
+  goToDestination(context, PextRoutes.home, admin: admin);
+}
+
 class NavItem extends StatelessWidget {
   final String asset;
   final String activeAsset;
@@ -287,36 +304,63 @@ class HomePage extends StatelessWidget {
   final bool admin;
   const HomePage({super.key, this.admin = false});
   @override
-  Widget build(BuildContext context) => AppShell(
-        admin: admin,
-        body: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 18),
-            children: [
-              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                Text(admin ? 'Olá, André' : 'Olá, Igor',
-                    style: const TextStyle(
-                        color: _blue,
-                        fontSize: 34,
-                        fontWeight: FontWeight.w600)),
-                const ProfileAvatar()
+  Widget build(BuildContext context) => WillPopScope(
+        onWillPop: () => _confirmExit(context),
+        child: AppShell(
+          admin: admin,
+          body: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 18),
+              children: [
+                Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(admin ? 'Olá, André' : 'Olá, Igor',
+                          style: const TextStyle(
+                              color: _blue,
+                              fontSize: 34,
+                              fontWeight: FontWeight.w600)),
+                      const ProfileAvatar()
+                    ]),
+                const SizedBox(height: 8),
+                if (admin) const AdminProgress() else const UserProgress(),
+                if (admin)
+                  SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton(
+                          onPressed: () => goToDestination(
+                              context, PextRoutes.dashboard,
+                              admin: true),
+                          child: const Text('Ver mais dashboards'))),
+                const SizedBox(height: 10),
+                const SectionTitle('Acesso Rápido'),
+                QuickGrid(admin: admin),
+                if (!admin) ...[
+                  const SectionTitle('Continue treinando'),
+                  const TrainingCard(inProgress: true),
+                  const SectionTitle('Refaça o teste'),
+                  const TrainingCard(inProgress: false),
+                ],
               ]),
-              const SizedBox(height: 8),
-              if (admin) const AdminProgress() else const UserProgress(),
-              if (admin)
-                OutlinedButton(
-                    onPressed: () => go(context, const DashboardPage()),
-                    child: const Text('Ver mais dashboards')),
-              const SizedBox(height: 10),
-              const SectionTitle('Acesso Rápido'),
-              QuickGrid(admin: admin),
-              if (!admin) ...[
-                const SectionTitle('Continue treinando'),
-                const TrainingCard(inProgress: true),
-                const SectionTitle('Refaça o teste'),
-                const TrainingCard(inProgress: false),
-              ],
-            ]),
+        ),
       );
+
+  Future<bool> _confirmExit(BuildContext context) async =>
+      await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+                title: const Text('Sair do aplicativo?'),
+                content:
+                    const Text('Você está na tela inicial administrativa.'),
+                actions: [
+                  TextButton(
+                      onPressed: () => Navigator.pop(dialogContext, false),
+                      child: const Text('Cancelar')),
+                  FilledButton(
+                      onPressed: () => Navigator.pop(dialogContext, true),
+                      child: const Text('Sair')),
+                ],
+              )) ??
+      false;
 }
 
 class ProfileAvatar extends StatelessWidget {
@@ -404,29 +448,25 @@ class AdminProgress extends StatelessWidget {
             style: TextStyle(color: _blue, fontSize: 18)),
         const SizedBox(height: 10),
         Container(
-            height: 150,
-            padding: const EdgeInsets.all(18),
+            height: 174,
+            padding: const EdgeInsets.all(16),
             decoration: card(),
             child: Row(children: [
               const SizedBox(
-                  width: 95,
-                  height: 95,
-                  child: CircularProgressIndicator(
-                      value: .88,
-                      strokeWidth: 8,
-                      backgroundColor: Color(0xFFF1A114),
-                      color: Color(0xFF22BE62))),
-              const SizedBox(width: 18),
+                  width: 118,
+                  height: 118,
+                  child: CustomPaint(painter: _AdminDonutPainter())),
+              const SizedBox(width: 12),
               Expanded(
                   child: Column(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: const [
-                    LegendRow(Colors.red, '0 Treinamentos'),
-                    LegendRow(Color(0xFF53A7FF), '1-2 Treinamentos'),
-                    LegendRow(Color(0xFFF1A114), '3-4 Treinamentos'),
-                    LegendRow(Color(0xFF22BE62), '5-7 Treinamentos'),
-                    LegendRow(_blue, '8+ Treinamentos')
+                    LegendRow(Color(0xFFF8494E), '0 Treinamentos', '12,50%'),
+                    LegendRow(Color(0xFF53A7FF), '1-2 Treinamentos', '12,50%'),
+                    LegendRow(Color(0xFFF1A114), '3-4 Treinamentos', '25%'),
+                    LegendRow(Color(0xFF22BE62), '5-7 Treinamentos', '37,50%'),
+                    LegendRow(_blue, '8+ Treinamentos', '12,50%')
                   ]))
             ])),
         const SizedBox(height: 8),
@@ -435,14 +475,50 @@ class AdminProgress extends StatelessWidget {
 
 class LegendRow extends StatelessWidget {
   final Color color;
-  final String text;
-  const LegendRow(this.color, this.text, {super.key});
+  final String text, value;
+  const LegendRow(this.color, this.text, this.value, {super.key});
   @override
   Widget build(BuildContext context) => Row(children: [
         CircleAvatar(radius: 5, backgroundColor: color),
         const SizedBox(width: 7),
-        Text(text, style: const TextStyle(fontSize: 8))
+        Expanded(
+            child: Text(text,
+                style:
+                    const TextStyle(fontSize: 8, fontWeight: FontWeight.w600))),
+        Text(value,
+            style: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold))
       ]);
+}
+
+class _AdminDonutPainter extends CustomPainter {
+  const _AdminDonutPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const values = [.125, .125, .25, .375, .125];
+    const colors = [
+      Color(0xFFF8494E),
+      Color(0xFF53A7FF),
+      Color(0xFFF1A114),
+      Color(0xFF22BE62),
+      _blue,
+    ];
+    final rect = Offset.zero & size;
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 15
+      ..strokeCap = StrokeCap.butt;
+    var start = -math.pi / 2;
+    for (var index = 0; index < values.length; index++) {
+      final sweep = values[index] * math.pi * 2;
+      paint.color = colors[index];
+      canvas.drawArc(rect.deflate(8), start, sweep, false, paint);
+      start += sweep;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class QuickGrid extends StatelessWidget {
@@ -462,11 +538,11 @@ class QuickGrid extends StatelessWidget {
       QuickAction(PextAssets.problem, 'Problemas\ne Soluções',
           () => go(context, ProblemsPage(admin: admin))),
       if (admin)
-        QuickAction(PextAssets.dashboardActive, 'Dashboard',
-            () => go(context, const DashboardPage())),
+        QuickAction(PextAssets.dashb, 'Dashboard',
+            () => goToDestination(context, PextRoutes.dashboard, admin: true)),
       if (admin)
         QuickAction(PextAssets.product, 'Embalagens',
-            () => go(context, const PackagingPage())),
+            () => go(context, const PackagingPage(admin: true))),
     ];
     return GridView.builder(
         shrinkWrap: true,
@@ -640,8 +716,7 @@ class _FailedTrainingNotice extends StatelessWidget {
         CircleAvatar(
             radius: wide ? 12 : 7,
             backgroundColor: const Color(0xFFF59E0B),
-            child: Icon(Icons.warning_amber_rounded,
-                size: wide ? 17 : 10, color: Colors.white)),
+            child: PextAssetIcon(PextAssets.warning, size: wide ? 17 : 10)),
         SizedBox(width: wide ? 10 : 4),
         Expanded(
             child:
@@ -684,34 +759,42 @@ class PageFrame extends StatelessWidget {
   final Widget child;
   final bool admin;
   final int selected;
+  final bool returnToHome;
   const PageFrame(
       {super.key,
       required this.title,
       required this.child,
       this.admin = false,
-      this.selected = 2});
+      this.selected = 2,
+      this.returnToHome = false});
   @override
-  Widget build(BuildContext context) => AppShell(
-      admin: admin,
-      selected: selected,
-      body: Column(children: [
-        Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
-            child: Row(children: [
-              IconButton(
-                  onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.chevron_left, size: 32)),
-              Expanded(
-                  child: Text(title,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                          color: _blue,
-                          fontSize: 20,
-                          fontWeight: FontWeight.w600))),
-              const SizedBox(width: 42)
-            ])),
-        Expanded(child: child)
-      ]));
+  Widget build(BuildContext context) => WillPopScope(
+      onWillPop: () async {
+        _pageSafeBack(context, admin: admin);
+        return false;
+      },
+      child: AppShell(
+          admin: admin,
+          selected: selected,
+          body: Column(children: [
+            Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
+                child: Row(children: [
+                  IconButton(
+                      onPressed: () => _pageSafeBack(context, admin: admin),
+                      icon: const Icon(Icons.arrow_back_ios_new,
+                          color: _blue, size: 19)),
+                  Expanded(
+                      child: Text(title,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                              color: _blue,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w600))),
+                  const SizedBox(width: 42)
+                ])),
+            Expanded(child: child)
+          ])));
 }
 
 class FavoritesPage extends StatelessWidget {
@@ -720,6 +803,7 @@ class FavoritesPage extends StatelessWidget {
   Widget build(BuildContext context) => PageFrame(
       title: 'Favoritos',
       selected: 1,
+      returnToHome: true,
       child: const SingleChildScrollView(
           padding: EdgeInsets.symmetric(horizontal: 16),
           child:
@@ -1081,9 +1165,10 @@ class ResinsPage extends StatelessWidget {
 }
 
 class PackagingPage extends StatelessWidget {
-  const PackagingPage({super.key});
+  final bool admin;
+  const PackagingPage({super.key, this.admin = false});
   @override
-  Widget build(BuildContext context) => const PackagingListScreen();
+  Widget build(BuildContext context) => PackagingListScreen(admin: admin);
 }
 
 class TrainingPage extends StatelessWidget {
@@ -1134,39 +1219,691 @@ class ProfilePage extends StatelessWidget {
   Widget build(BuildContext context) => UserProfileScreen(admin: admin);
 }
 
-class DashboardPage extends StatelessWidget {
+class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
+
+  @override
+  State<DashboardPage> createState() => _DashboardPageState();
+}
+
+class _DashboardPageState extends State<DashboardPage> {
+  int _tab = 0;
+
   @override
   Widget build(BuildContext context) => PageFrame(
-      title: 'Dashboard',
-      admin: true,
-      selected: 1,
-      child: ListView(padding: const EdgeInsets.all(18), children: [
-        const Text('Indicadores de treinamento',
-            style: TextStyle(color: _blue, fontSize: 18)),
-        const SizedBox(height: 12),
-        Container(
-            height: 180,
-            decoration: card(),
-            child: const Center(
-                child: Icon(Icons.bar_chart, size: 125, color: _blue))),
-        const SizedBox(height: 18),
-        Row(children: const [
-          Metric('Usuários ativos', '32'),
-          SizedBox(width: 10),
-          Metric('Aprovação média', '82%')
+        title: 'Dashboards',
+        admin: true,
+        selected: 1,
+        child: ListView(padding: const EdgeInsets.all(18), children: [
+          _DashboardTabs(
+              value: _tab, onChanged: (value) => setState(() => _tab = value)),
+          const SizedBox(height: 16),
+          switch (_tab) {
+            0 => const _DashboardOverview(),
+            1 => const _DashboardProblems(),
+            2 => const _DashboardTraining(),
+            _ => const _DashboardAssistant(),
+          },
         ]),
-        const SizedBox(height: 18),
-        const Text('Últimas atividades',
-            style: TextStyle(color: _blue, fontSize: 18)),
-        ...[
-          'Ana concluiu Processo de extrusão',
-          'Jorge atualizou a resina PEBD',
-          'Novo ticket de suporte criado'
-        ].map((x) => ListTile(
-            leading: const Icon(Icons.history, color: _blue),
-            title: Text(x),
-            subtitle: const Text('Hoje')))
+      );
+}
+
+class _DashboardTabs extends StatelessWidget {
+  final int value;
+  final ValueChanged<int> onChanged;
+  const _DashboardTabs({required this.value, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    const labels = [
+      'Visão Geral',
+      'Problemas',
+      'Treinamentos',
+      'Assistente IA'
+    ];
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: List.generate(
+          labels.length,
+          (index) => Padding(
+            padding: EdgeInsets.only(right: index == labels.length - 1 ? 0 : 8),
+            child: OutlinedButton(
+              onPressed: () => onChanged(index),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: _blue,
+                side: BorderSide(
+                    color: index == value
+                        ? const Color(0xFF4A9FFF)
+                        : const Color(0xFFB8C0CC)),
+                minimumSize: const Size(0, 36),
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+              ),
+              child: Text(labels[index],
+                  style: TextStyle(
+                      fontWeight:
+                          index == value ? FontWeight.bold : FontWeight.w600)),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DashboardOverview extends StatelessWidget {
+  const _DashboardOverview();
+
+  @override
+  Widget build(BuildContext context) => const Column(children: [
+        _DashboardMetricGrid(metrics: [
+          _DashboardMetric(
+              'Problemas Reportados', '128', '8,3%', Color(0xFF0B4AA0), true),
+          _DashboardMetric(
+              'Solicitações de Ajuda', '32', '12,3%', Color(0xFFD93838), false),
+          _DashboardMetric('Resolução pelo Sistema', '75,8%', '2%',
+              Color(0xFF1CBF66), false),
+          _DashboardMetric('Dúvidas não respondidas (IA)', '13', '8,3%',
+              Color(0xFFF2A400), true),
+          _DashboardMetric(
+              'Treinamentos Concluídos', '36', '5,7%', Color(0xFF8B32EC), true),
+          _DashboardMetric(
+              'Aprovação Média', '78,3%', '2,1%', Color(0xFF1698EA), true),
+        ]),
+        SizedBox(height: 20),
+        _DashboardSectionTitle('Evolução Geral'),
+        SizedBox(height: 10),
+        _LegendRow(),
+        SizedBox(height: 12),
+        _DashboardChart(height: 210, lines: [
+          _ChartLine(
+              Color(0xFFD93838), [57, 61, 55, 60, 56, 59, 73, 65, 62, 73, 66]),
+          _ChartLine(
+              Color(0xFF1768DF), [36, 36, 30, 34, 38, 40, 50, 44, 33, 45, 41]),
+          _ChartLine(
+              Color(0xFF14A957), [17, 25, 26, 26, 25, 28, 34, 28, 31, 28, 25]),
+        ]),
+      ]);
+}
+
+class _DashboardProblems extends StatelessWidget {
+  const _DashboardProblems();
+
+  @override
+  Widget build(BuildContext context) => const Column(children: [
+        _DashboardMetricGrid(compact: true, metrics: [
+          _DashboardMetric(
+              'Total de Problemas', '128', '8,3%', Color(0xFF0B4AA0), true),
+          _DashboardMetric(
+              'Resolvidos pelo Sistema', '97', '2%', Color(0xFF1CBF66), false),
+          _DashboardMetric(
+              'Encaminhados ao ADM', '32', '1,3%', Color(0xFFD93838), true),
+        ]),
+        SizedBox(height: 20),
+        _DashboardSectionTitle('Problemas por categoria'),
+        SizedBox(height: 10),
+        _DashboardDonutCard(),
+        SizedBox(height: 20),
+        _DashboardSectionTitle('Problemas por produto'),
+        SizedBox(height: 10),
+        _DashboardProgressCard(items: [
+          ('RAP10', 46),
+          ('Macarrão Instantâneo', 26),
+          ('Marcas de gel', 15),
+          ('Iorgute', 32),
+          ('Saco Pão Pulma', 63),
+        ]),
+        SizedBox(height: 20),
+        _DashboardSectionTitle('Problemas ao longo do tempo'),
+        SizedBox(height: 10),
+        _DashboardChart(height: 160, lines: [
+          _ChartLine(Color(0xFF1768DF),
+              [16, 39, 30, 33, 43, 23, 40, 54, 24, 38, 49, 47])
+        ]),
+        SizedBox(height: 20),
+        _DashboardSectionTitle('Solicitações'),
+        SizedBox(height: 10),
+        _DashboardMetricGrid(compact: true, metrics: [
+          _DashboardMetric(
+              'Total de Solicitações', '128', '8,3%', Color(0xFF0B4AA0), true),
+          _DashboardMetric('Novas', '32', '1,3%', Color(0xFF1768DF), true),
+          _DashboardMetric(
+              'Em andamento', '32', '1,3%', Color(0xFFF2A400), true),
+          _DashboardMetric('Concluídas', '32', '1,3%', Color(0xFF1CBF66), true),
+        ]),
+        SizedBox(height: 20),
+        _DashboardSectionTitle('Solicitações por Status'),
+        SizedBox(height: 10),
+        _DashboardStatusDonutCard(),
+        SizedBox(height: 20),
+        _DashboardSectionTitle('Tempo Médio até a Conclusão'),
+        SizedBox(height: 10),
+        _DashboardTimeCard(),
+        SizedBox(height: 20),
+        _DashboardSectionTitle('Problemas que geram mais solicitações'),
+        SizedBox(height: 10),
+        _DashboardProgressCard(items: [
+          ('Variação na espessura', 46),
+          ('Bolhas no filme', 20),
+          ('Marcas de gel', 15),
+          ('Linhas na superfície do filme', 32),
+          ('Fusão irregular do filme', 63),
+        ]),
+        SizedBox(height: 20),
+        Row(children: [
+          Expanded(
+              child: _DashboardMetricCard(
+                  compact: true,
+                  metric: _DashboardMetric('Soluções Exibidas', '128', '8,3%',
+                      Color(0xFF0B4AA0), true))),
+          SizedBox(width: 10),
+          Expanded(
+              child: _DashboardMetricCard(
+                  compact: true,
+                  metric: _DashboardMetric('Taxa de sucesso', '82,3%', '2%',
+                      Color(0xFF1CBF66), true))),
+        ]),
+        SizedBox(height: 20),
+        _DashboardSectionTitle('Taxa de sucesso das soluções'),
+        SizedBox(height: 10),
+        _DashboardProgressCard(valueSuffix: '%', items: [
+          ('Ajuste na Temperatura', 92),
+          ('Ajuste de velocidade', 82),
+          ('Verificar Resfriamento', 80),
+          ('Ajuste na Composição', 70),
+          ('Limpeza de Matriz', 62),
+        ]),
+      ]);
+}
+
+class _DashboardTraining extends StatelessWidget {
+  const _DashboardTraining();
+
+  @override
+  Widget build(BuildContext context) => const Column(children: [
+        _DashboardMetricGrid(compact: true, metrics: [
+          _DashboardMetric(
+              'Total de Treinamentos', '128', '8,3%', Color(0xFF0B4AA0), true),
+          _DashboardMetric(
+              'Em andamento', '97', '2%', Color(0xFFF2A400), false),
+          _DashboardMetric('Concluídos', '32', '1,3%', Color(0xFF1CBF66), true),
+        ]),
+        SizedBox(height: 20),
+        _DashboardSectionTitle('Conclusão por treinamento'),
+        SizedBox(height: 10),
+        _DashboardProgressCard(items: [
+          ('Processo de extrusão', 46),
+          ('Segurança Operacional', 26),
+          ('Boas Práticas de Produção', 15),
+          ('Iorgute', 32),
+          ('Saco Pão Pulma', 63),
+        ]),
+        SizedBox(height: 20),
+        _DashboardSectionTitle('Situação dos usuários'),
+        SizedBox(height: 10),
+        _DashboardDonutCard(training: true),
+        SizedBox(height: 20),
+        _DashboardSectionTitle('Aprovação Média nas avaliações'),
+        SizedBox(height: 10),
+        _DashboardApprovalCard(),
+      ]);
+}
+
+class _DashboardAssistant extends StatelessWidget {
+  const _DashboardAssistant();
+
+  @override
+  Widget build(BuildContext context) => const Column(children: [
+        _DashboardMetricGrid(compact: true, metrics: [
+          _DashboardMetric('Conversas', '256', '8,3%', Color(0xFF0B4AA0), true),
+          _DashboardMetric(
+              'Dúvidas respondidas', '97', '2%', Color(0xFF1CBF66), false),
+          _DashboardMetric(
+              'Dúvidas não respondidas', '32', '1,3%', Color(0xFFD93838), true),
+        ]),
+        SizedBox(height: 20),
+        _DashboardSectionTitle('Dúvidas não respondidas'),
+        SizedBox(height: 10),
+        _DashboardProgressCard(items: [
+          ('Polímeros', 46),
+          ('Matriz', 26),
+          ('Processo de Extrusão', 15),
+          ('Resfriamento', 32),
+          ('Outros', 63),
+        ]),
+        SizedBox(height: 20),
+        _DashboardSectionTitle('Conteúdos cadastrados'),
+        SizedBox(height: 10),
+        _DashboardMetricGrid(compact: true, metrics: [
+          _DashboardMetric(
+              'Total de conteúdos', '256', '8,3%', Color(0xFF0B4AA0), true),
+          _DashboardMetric('Atualizados', '97', '2%', Color(0xFF1CBF66), false),
+          _DashboardMetric('Novos', '32', '1,3%', Color(0xFFD93838), true),
+        ]),
+        SizedBox(height: 20),
+        _DashboardSectionTitle('Interações com IA'),
+        SizedBox(height: 10),
+        _DashboardChart(height: 210, lines: [
+          _ChartLine(Color(0xFF1768DF),
+              [35, 36, 64, 61, 76, 68, 60, 95, 89, 105, 100, 118, 128])
+        ]),
+      ]);
+}
+
+class _DashboardMetric {
+  final String title, value, trend;
+  final Color color;
+  final bool positive;
+  const _DashboardMetric(
+      this.title, this.value, this.trend, this.color, this.positive);
+}
+
+class _DashboardMetricGrid extends StatelessWidget {
+  final List<_DashboardMetric> metrics;
+  final bool compact;
+  const _DashboardMetricGrid({required this.metrics, this.compact = false});
+
+  @override
+  Widget build(BuildContext context) {
+    if (compact && metrics.length <= 3)
+      return Row(
+          children: metrics
+              .map((metric) => Expanded(
+                  child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 3),
+                      child:
+                          _DashboardMetricCard(metric: metric, compact: true))))
+              .toList());
+    return Wrap(
+        spacing: 12,
+        runSpacing: 12,
+        children: metrics
+            .map((metric) => SizedBox(
+                width: (MediaQuery.sizeOf(context).width - 60) / 2,
+                child: _DashboardMetricCard(metric: metric)))
+            .toList());
+  }
+}
+
+class _DashboardMetricCard extends StatelessWidget {
+  final _DashboardMetric metric;
+  final bool compact;
+  const _DashboardMetricCard({required this.metric, this.compact = false});
+  @override
+  Widget build(BuildContext context) => Container(
+        height: compact ? 126 : 145,
+        padding: EdgeInsets.all(compact ? 11 : 14),
+        decoration: card(),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(metric.title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                  color: metric.color,
+                  fontSize: compact ? 10 : 12,
+                  fontWeight: FontWeight.bold)),
+          const Spacer(),
+          Text(metric.value,
+              style: TextStyle(
+                  fontSize: compact ? 31 : 38,
+                  height: 1,
+                  fontWeight: FontWeight.bold,
+                  color: const Color(0xFF333946))),
+          const SizedBox(height: 7),
+          Row(children: [
+            Icon(metric.positive ? Icons.arrow_drop_down : Icons.arrow_drop_up,
+                color: metric.positive
+                    ? const Color(0xFF1CBF66)
+                    : const Color(0xFFD93838),
+                size: 21),
+            Text(metric.trend,
+                style: TextStyle(
+                    color: metric.positive
+                        ? const Color(0xFF1CBF66)
+                        : const Color(0xFFD93838),
+                    fontWeight: FontWeight.bold,
+                    fontSize: compact ? 10 : 12))
+          ]),
+          Text('vs 30 dias ant.',
+              style: TextStyle(
+                  color: const Color(0xFF7A8290), fontSize: compact ? 8 : 10)),
+        ]),
+      );
+}
+
+class _DashboardSectionTitle extends StatelessWidget {
+  final String value;
+  const _DashboardSectionTitle(this.value);
+  @override
+  Widget build(BuildContext context) => Align(
+      alignment: Alignment.centerLeft,
+      child: Text(value,
+          style: const TextStyle(
+              color: _blue, fontSize: 19, fontWeight: FontWeight.bold)));
+}
+
+class _LegendRow extends StatelessWidget {
+  const _LegendRow();
+  @override
+  Widget build(BuildContext context) =>
+      const Wrap(spacing: 13, runSpacing: 6, children: [
+        _LegendItem('Solicitação de ajuda', Color(0xFFD93838)),
+        _LegendItem('Problemas reportados', Color(0xFF1768DF)),
+        _LegendItem('Resolução pelo sistema', Color(0xFF14A957)),
+      ]);
+}
+
+class _LegendItem extends StatelessWidget {
+  final String label;
+  final Color color;
+  const _LegendItem(this.label, this.color);
+  @override
+  Widget build(BuildContext context) =>
+      Row(mainAxisSize: MainAxisSize.min, children: [
+        Container(
+            width: 10,
+            height: 10,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+        const SizedBox(width: 4),
+        Text(label,
+            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600))
+      ]);
+}
+
+class _DashboardChart extends StatelessWidget {
+  final double height;
+  final List<_ChartLine> lines;
+  const _DashboardChart({required this.height, required this.lines});
+  @override
+  Widget build(BuildContext context) => Container(
+      height: height,
+      clipBehavior: Clip.hardEdge,
+      padding: const EdgeInsets.fromLTRB(10, 24, 6, 8),
+      decoration: card(),
+      child: CustomPaint(
+          painter: _LineChartPainter(lines), child: const SizedBox.expand()));
+}
+
+class _ChartLine {
+  final Color color;
+  final List<double> values;
+  const _ChartLine(this.color, this.values);
+}
+
+class _LineChartPainter extends CustomPainter {
+  final List<_ChartLine> lines;
+  _LineChartPainter(this.lines);
+  @override
+  void paint(Canvas canvas, Size size) {
+    final grid = Paint()
+      ..color = const Color(0xFFE5E8ED)
+      ..strokeWidth = 1;
+    for (var i = 1; i < 5; i++)
+      canvas.drawLine(Offset(0, size.height * i / 5),
+          Offset(size.width, size.height * i / 5), grid);
+    final highest = lines
+        .expand((line) => line.values)
+        .fold<double>(0, (current, value) => math.max(current, value));
+    final maxY = highest == 0 ? 1.0 : highest * 1.15;
+    for (final line in lines) {
+      final paint = Paint()
+        ..color = line.color
+        ..strokeWidth = 2.5
+        ..style = PaintingStyle.stroke;
+      final path = Path();
+      for (var i = 0; i < line.values.length; i++) {
+        final point = Offset(size.width * i / (line.values.length - 1),
+            size.height - (line.values[i] / maxY * (size.height - 10)) - 5);
+        if (i == 0)
+          path.moveTo(point.dx, point.dy);
+        else
+          path.lineTo(point.dx, point.dy);
+      }
+      canvas.drawPath(path, paint);
+      final dots = Paint()..color = line.color;
+      for (var i = 0; i < line.values.length; i++)
+        canvas.drawCircle(
+            Offset(size.width * i / (line.values.length - 1),
+                size.height - (line.values[i] / maxY * (size.height - 10)) - 5),
+            3.5,
+            dots);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _LineChartPainter oldDelegate) =>
+      oldDelegate.lines != lines;
+}
+
+class _DashboardProgressCard extends StatelessWidget {
+  final List<(String, int)> items;
+  final String valueSuffix;
+  const _DashboardProgressCard({required this.items, this.valueSuffix = ''});
+  @override
+  Widget build(BuildContext context) => Container(
+      padding: const EdgeInsets.all(16),
+      decoration: card(),
+      child: Column(
+          children: items
+              .map((item) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Row(children: [
+                    Expanded(
+                        flex: 4,
+                        child: Text(item.$1,
+                            style: const TextStyle(
+                                fontSize: 12, fontWeight: FontWeight.w600))),
+                    Expanded(
+                        flex: 5,
+                        child: ClipRRect(
+                            borderRadius: BorderRadius.circular(4),
+                            child: LinearProgressIndicator(
+                                value:
+                                    item.$2 / (valueSuffix.isEmpty ? 70 : 100),
+                                minHeight: 7,
+                                color: _blue,
+                                backgroundColor: const Color(0xFFE4E7EC)))),
+                    const SizedBox(width: 14),
+                    SizedBox(
+                        width: 22,
+                        child: Text('${item.$2}$valueSuffix',
+                            style:
+                                const TextStyle(fontWeight: FontWeight.bold)))
+                  ])))
+              .toList()));
+}
+
+class _DashboardStatusDonutCard extends StatelessWidget {
+  const _DashboardStatusDonutCard();
+
+  @override
+  Widget build(BuildContext context) => Container(
+      padding: const EdgeInsets.all(16),
+      decoration: card(),
+      child: const Row(children: [
+        SizedBox(
+            width: 125,
+            height: 125,
+            child: CustomPaint(
+                painter: _DonutPainter([
+              (25.0, Color(0xFF2E7CF6)),
+              (50.0, Color(0xFF1CBF66)),
+              (25.0, Color(0xFFFFC107)),
+            ]))),
+        SizedBox(width: 14),
+        Expanded(
+            child: Column(children: [
+          _StatusLegend('Novas', '25%', Color(0xFF2E7CF6)),
+          _StatusLegend('Em andamento', '50%', Color(0xFF1CBF66)),
+          _StatusLegend('Concluídas', '25%', Color(0xFFFFC107)),
+        ]))
+      ]));
+}
+
+class _StatusLegend extends StatelessWidget {
+  final String label, value;
+  final Color color;
+  const _StatusLegend(this.label, this.value, this.color);
+  @override
+  Widget build(BuildContext context) => Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(children: [
+        Container(
+            width: 10,
+            height: 10,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+        const SizedBox(width: 6),
+        Expanded(
+            child: Text(label,
+                style: const TextStyle(
+                    fontSize: 11, fontWeight: FontWeight.w600))),
+        Text(value,
+            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+      ]));
+}
+
+class _DashboardTimeCard extends StatelessWidget {
+  const _DashboardTimeCard();
+  @override
+  Widget build(BuildContext context) => Container(
+      height: 136,
+      padding: const EdgeInsets.all(16),
+      decoration: card(),
+      child: const Row(children: [
+        Expanded(
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+              Text('2h 45m',
+                  style: TextStyle(fontSize: 30, fontWeight: FontWeight.bold)),
+              SizedBox(height: 7),
+              Row(children: [
+                Icon(Icons.arrow_drop_down, color: Color(0xFF1CBF66)),
+                Text('8,3%',
+                    style: TextStyle(
+                        color: Color(0xFF1CBF66), fontWeight: FontWeight.bold)),
+                SizedBox(width: 6),
+                Text('vs 30 dias ant.',
+                    style: TextStyle(fontSize: 9, color: Color(0xFF7A8290))),
+              ])
+            ])),
+        Expanded(
+            child: _DashboardChart(height: 88, lines: [
+          _ChartLine(Color(0xFF1768DF), [15, 30, 45, 34, 37, 35, 56, 46])
+        ]))
+      ]));
+}
+
+class _DashboardDonutCard extends StatelessWidget {
+  final bool training;
+  const _DashboardDonutCard({this.training = false});
+  @override
+  Widget build(BuildContext context) {
+    final entries = training
+        ? const [
+            ('Concluídos', 45, Color(0xFF2E7CF6)),
+            ('Em andamento', 30, Color(0xFF1CBF66)),
+            ('Não iniciados', 25, Color(0xFFFFC107))
+          ]
+        : const [
+            ('Variação na espessura', 38, Color(0xFF1768DF)),
+            ('Bolhas no filme', 22, Color(0xFF4AA5ED)),
+            ('Marcas de gel', 15, Color(0xFFFFC107)),
+            ('Linhas na superfície', 10, Color(0xFFD93838)),
+            ('Fusão irregular', 8, Color(0xFF9564E8)),
+            ('Outros', 6, Color(0xFF1CBF66))
+          ];
+    return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: card(),
+        child: Row(children: [
+          SizedBox(
+              width: 125,
+              height: 125,
+              child: CustomPaint(
+                  painter: _DonutPainter(entries
+                      .map((entry) => (entry.$2.toDouble(), entry.$3))
+                      .toList()))),
+          const SizedBox(width: 14),
+          Expanded(
+              child: Column(
+                  children: entries
+                      .map((entry) => Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          child: Row(children: [
+                            Container(
+                                width: 10,
+                                height: 10,
+                                decoration: BoxDecoration(
+                                    color: entry.$3, shape: BoxShape.circle)),
+                            const SizedBox(width: 6),
+                            Expanded(
+                                child: Text(entry.$1,
+                                    style: const TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w600))),
+                            Text('${entry.$2}%',
+                                style: const TextStyle(
+                                    fontSize: 10, fontWeight: FontWeight.bold))
+                          ])))
+                      .toList()))
+        ]));
+  }
+}
+
+class _DonutPainter extends CustomPainter {
+  final List<(double, Color)> values;
+  const _DonutPainter(this.values);
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    var start = -math.pi / 2;
+    final total = values.fold<double>(0, (sum, item) => sum + item.$1);
+    for (final value in values) {
+      final sweep = value.$1 / total * math.pi * 2;
+      canvas.drawArc(
+          rect.deflate(8), start, sweep, true, Paint()..color = value.$2);
+      start += sweep;
+    }
+    canvas.drawCircle(size.center(Offset.zero), size.width * .24,
+        Paint()..color = Colors.white);
+  }
+
+  @override
+  bool shouldRepaint(covariant _DonutPainter oldDelegate) =>
+      oldDelegate.values != values;
+}
+
+class _DashboardApprovalCard extends StatelessWidget {
+  const _DashboardApprovalCard();
+  @override
+  Widget build(BuildContext context) => Container(
+      height: 135,
+      padding: const EdgeInsets.all(16),
+      decoration: card(),
+      child: const Row(children: [
+        Expanded(
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+              Text('76,6%',
+                  style: TextStyle(fontSize: 36, fontWeight: FontWeight.bold)),
+              Row(children: [
+                Icon(Icons.arrow_drop_down, color: Color(0xFF1CBF66)),
+                Text('8,3%',
+                    style: TextStyle(
+                        color: Color(0xFF1CBF66), fontWeight: FontWeight.bold)),
+                SizedBox(width: 6),
+                Text('vs 30 dias ant.',
+                    style: TextStyle(fontSize: 9, color: Color(0xFF7A8290)))
+              ])
+            ])),
+        Expanded(
+            child: _DashboardChart(height: 88, lines: [
+          _ChartLine(Color(0xFF1768DF), [25, 52, 76, 49, 63, 90, 58])
+        ]))
       ]));
 }
 
