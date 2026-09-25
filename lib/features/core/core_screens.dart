@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import '../../app_routes.dart';
+import '../../models/packaging_specification.dart';
 import '../../widgets/pext_asset_icon.dart';
 import '../../widgets/app_search_bar.dart';
 
@@ -2613,28 +2614,30 @@ class _PackagingRegistrationScreenState
     extends State<PackagingRegistrationScreen> {
   int _tab = 0;
   late List<String> _materials;
-  late List<String> _parameters;
+  late PackagingSpecification _specification;
+  late List<PackagingParameter> _parameters;
+  late List<PackagingParameter> _extraParameters;
   late List<TextEditingController> _materialControllers;
-  late List<TextEditingController> _parameterControllers;
+  late List<TextEditingController> _minimumControllers;
+  late List<TextEditingController> _maximumControllers;
 
   @override
   void initState() {
     super.initState();
     _materials = List<String>.from(['1518MM', 'FLEXUS 9212', 'HF2208S3'],
         growable: true);
-    _parameters = List<String>.from([
-      'Temperatura',
-      'Temperatura do Cabeçote',
-      'Espessura final',
-      'Resfriamento',
-      'Pressão',
-    ], growable: true);
+    _specification = PackagingCatalog.byName('RAP10');
+    _parameters = _specification.parameters;
+    _extraParameters = _specification.extraParameters;
     _materialControllers = List<TextEditingController>.generate(
         _materials.length, (_) => TextEditingController(),
         growable: true);
-    _parameterControllers = List<TextEditingController>.generate(
-        _parameters.length, (_) => TextEditingController(),
-        growable: true);
+    _minimumControllers = _parameters
+        .map((parameter) => TextEditingController(text: '${parameter.min}'))
+        .toList(growable: true);
+    _maximumControllers = _parameters
+        .map((parameter) => TextEditingController(text: '${parameter.max}'))
+        .toList(growable: true);
   }
 
   @override
@@ -2642,7 +2645,10 @@ class _PackagingRegistrationScreenState
     for (final controller in _materialControllers) {
       controller.dispose();
     }
-    for (final controller in _parameterControllers) {
+    for (final controller in _minimumControllers) {
+      controller.dispose();
+    }
+    for (final controller in _maximumControllers) {
       controller.dispose();
     }
     super.dispose();
@@ -2651,46 +2657,66 @@ class _PackagingRegistrationScreenState
   void _reset() => setState(() {
         _tab = 0;
         _materials = <String>[];
-        _parameters = <String>[];
+        _specification = PackagingCatalog.byName('RAP10');
+        _parameters = _specification.parameters;
+        _extraParameters = _specification.extraParameters;
         for (final controller in _materialControllers) {
           controller.dispose();
         }
-        for (final controller in _parameterControllers) {
+        for (final controller in _minimumControllers) {
+          controller.dispose();
+        }
+        for (final controller in _maximumControllers) {
           controller.dispose();
         }
         _materialControllers = <TextEditingController>[];
-        _parameterControllers = <TextEditingController>[];
+        _minimumControllers = _parameters
+            .map((parameter) => TextEditingController(text: '${parameter.min}'))
+            .toList(growable: true);
+        _maximumControllers = _parameters
+            .map((parameter) => TextEditingController(text: '${parameter.max}'))
+            .toList(growable: true);
       });
 
-  void _save() => showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) => AlertDialog(
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
-              side: const BorderSide(color: Color(0xFF9CA5B1), width: 1.5)),
-          title: const Text('Embalagem adicionada com sucesso!',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: _blue, fontWeight: FontWeight.bold)),
-          content: Column(mainAxisSize: MainAxisSize.min, children: [
-            SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                    onPressed: () {
-                      Navigator.of(dialogContext).pop();
-                      _reset();
-                    },
-                    child: const Text('Adicionar mais'))),
-            const SizedBox(height: 10),
-            SizedBox(
-                width: double.infinity,
-                child: OutlinedButton(
-                    onPressed: () {
-                      Navigator.of(dialogContext).pop();
-                      Navigator.of(context).pop();
-                    },
-                    child: const Text('Fechar'))),
-          ])));
+  void _save() {
+    for (var index = 0; index < _parameters.length; index++) {
+      _parameters[index].min = double.tryParse(
+              _minimumControllers[index].text.replaceAll(',', '.')) ??
+          _parameters[index].min;
+      _parameters[index].max = double.tryParse(
+              _maximumControllers[index].text.replaceAll(',', '.')) ??
+          _parameters[index].max;
+    }
+    showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) => AlertDialog(
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+                side: const BorderSide(color: Color(0xFF9CA5B1), width: 1.5)),
+            title: const Text('Embalagem adicionada com sucesso!',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: _blue, fontWeight: FontWeight.bold)),
+            content: Column(mainAxisSize: MainAxisSize.min, children: [
+              SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                      onPressed: () {
+                        Navigator.of(dialogContext).pop();
+                        _reset();
+                      },
+                      child: const Text('Adicionar mais'))),
+              const SizedBox(height: 10),
+              SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                      onPressed: () {
+                        Navigator.of(dialogContext).pop();
+                        Navigator.of(context).pop();
+                      },
+                      child: const Text('Fechar'))),
+            ])));
+  }
 
   @override
   Widget build(BuildContext context) => _Shell(
@@ -2698,7 +2724,7 @@ class _PackagingRegistrationScreenState
       admin: widget.admin,
       child: Column(children: [
         _TabBar(
-            labels: const ['Visão Geral', 'Composição', 'Parâmetros'],
+            labels: const ['Visão Geral', 'Verificações'],
             value: _tab,
             onChanged: (value) => setState(() => _tab = value)),
         const SizedBox(height: 18),
@@ -2716,48 +2742,107 @@ class _PackagingRegistrationScreenState
     switch (_tab) {
       case 0:
         return ListView(children: const [
-          _Field('Nome da Embalagem', hint: 'Ex: Material irregular na matriz'),
-          _UploadDropZone('Imagem'),
+          _Field('Nome da Embalagem', hint: 'Ex: RAP10'),
+          _TrainingSelectField('Categoria'),
+          _UploadDropZone('Imagem da Embalagem'),
         ]);
       case 1:
         return ListView(children: [
-          const Text('Materiais',
+          const Text('Verificações Fixas',
               style: TextStyle(
                   color: _blue, fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 10),
-          ..._materials.asMap().entries.map((entry) => _PackagingInputRow(
-              label: entry.value,
-              controller: _materialControllers[entry.key],
-              onDelete: () => setState(() {
-                    _materials.removeAt(entry.key);
-                    _materialControllers.removeAt(entry.key).dispose();
-                  }))),
-          _PackagingAddButton(
-              onPressed: () => setState(() {
-                    _materials.add('Novo material');
-                    _materialControllers.add(TextEditingController());
-                  })),
+          ..._parameters.asMap().entries.map((entry) => _PackagingThresholdRow(
+              parameter: entry.value,
+              minimumController: _minimumControllers[entry.key],
+              maximumController: _maximumControllers[entry.key],
+              onEnabledChanged: (enabled) =>
+                  setState(() => entry.value.enabled = enabled))),
+          const SizedBox(height: 18),
+          const Text('Verificações Extras / Personalizadas',
+              style: TextStyle(
+                  color: _blue, fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 10),
+          ..._extraParameters.map((parameter) => Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              decoration: _card(),
+              child: ListTile(
+                  title: Text(parameter.name,
+                      style: const TextStyle(fontWeight: FontWeight.w600)),
+                  subtitle: Text(
+                      '${parameter.min} a ${parameter.max} ${parameter.unit}'),
+                  trailing: IconButton(
+                      tooltip: 'Excluir verificação',
+                      onPressed: () =>
+                          setState(() => _extraParameters.remove(parameter)),
+                      icon: const Icon(Icons.delete_outline,
+                          color: Color(0xFFD93838)))))),
+          SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                  onPressed: _showAddExtraVerification,
+                  icon: const Icon(Icons.add_circle_outline),
+                  label: const Text('Adicionar Verificação Extra'))),
         ]);
       default:
-        return ListView(children: [
-          const Text('Produção',
-              style: TextStyle(
-                  color: _blue, fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 10),
-          ..._parameters.asMap().entries.map((entry) => _PackagingInputRow(
-              label: entry.value,
-              controller: _parameterControllers[entry.key],
-              onDelete: () => setState(() {
-                    _parameters.removeAt(entry.key);
-                    _parameterControllers.removeAt(entry.key).dispose();
-                  }))),
-          _PackagingAddButton(
-              onPressed: () => setState(() {
-                    _parameters.add('Novo parâmetro');
-                    _parameterControllers.add(TextEditingController());
-                  })),
-        ]);
+        return const SizedBox.shrink();
     }
+  }
+
+  void _showAddExtraVerification() {
+    final name = TextEditingController();
+    final unit = TextEditingController();
+    final minimum = TextEditingController();
+    final maximum = TextEditingController();
+    showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        builder: (sheetContext) => Padding(
+            padding: EdgeInsets.fromLTRB(
+                18, 18, 18, MediaQuery.viewInsetsOf(sheetContext).bottom + 18),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              const Text('Nova verificação extra',
+                  style: TextStyle(
+                      color: _blue, fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 14),
+              TextField(
+                  controller: name,
+                  decoration:
+                      const InputDecoration(labelText: 'Nome do parâmetro')),
+              TextField(
+                  controller: unit,
+                  decoration: const InputDecoration(labelText: 'Unidade')),
+              TextField(
+                  controller: minimum,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: 'Valor mínimo')),
+              TextField(
+                  controller: maximum,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: 'Valor máximo')),
+              const SizedBox(height: 14),
+              SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                      onPressed: () {
+                        final min =
+                            double.tryParse(minimum.text.replaceAll(',', '.'));
+                        final max =
+                            double.tryParse(maximum.text.replaceAll(',', '.'));
+                        if (name.text.trim().isEmpty ||
+                            unit.text.trim().isEmpty ||
+                            min == null ||
+                            max == null) return;
+                        setState(() => _extraParameters.add(PackagingParameter(
+                            name: name.text.trim(),
+                            unit: unit.text.trim(),
+                            min: min,
+                            max: max,
+                            isCustom: true)));
+                        Navigator.pop(sheetContext);
+                      },
+                      child: const Text('ADICIONAR')))
+            ])));
   }
 }
 
@@ -2798,6 +2883,71 @@ class _PackagingInputRow extends StatelessWidget {
       ]));
 }
 
+class _PackagingThresholdRow extends StatelessWidget {
+  final PackagingParameter parameter;
+  final TextEditingController minimumController;
+  final TextEditingController maximumController;
+  final ValueChanged<bool> onEnabledChanged;
+  const _PackagingThresholdRow(
+      {required this.parameter,
+      required this.minimumController,
+      required this.maximumController,
+      required this.onEnabledChanged});
+
+  @override
+  Widget build(BuildContext context) => Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: _card(),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Expanded(
+              child: Text('${parameter.name} (${parameter.unit})',
+                  style: const TextStyle(
+                      fontSize: 14, fontWeight: FontWeight.w600))),
+          Switch(value: parameter.enabled, onChanged: onEnabledChanged)
+        ]),
+        const SizedBox(height: 10),
+        Opacity(
+            opacity: parameter.enabled ? 1 : .45,
+            child: IgnorePointer(
+                ignoring: !parameter.enabled,
+                child: Row(children: [
+                  Expanded(
+                      child: _ThresholdInput(
+                          label: 'Min',
+                          unit: parameter.unit,
+                          controller: minimumController)),
+                  const SizedBox(width: 10),
+                  Expanded(
+                      child: _ThresholdInput(
+                          label: 'Max',
+                          unit: parameter.unit,
+                          controller: maximumController)),
+                ])))
+      ]));
+}
+
+class _ThresholdInput extends StatelessWidget {
+  final String label, unit;
+  final TextEditingController controller;
+  const _ThresholdInput(
+      {required this.label, required this.unit, required this.controller});
+  @override
+  Widget build(BuildContext context) => TextField(
+      controller: controller,
+      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      decoration: InputDecoration(
+          labelText: label,
+          suffixText: unit,
+          isDense: true,
+          filled: true,
+          fillColor: Colors.white,
+          border: const OutlineInputBorder(
+              borderRadius: BorderRadius.all(Radius.circular(10)),
+              borderSide: BorderSide(color: _border))));
+}
+
 class _PackagingAddButton extends StatelessWidget {
   final VoidCallback onPressed;
   const _PackagingAddButton({required this.onPressed});
@@ -2821,81 +2971,86 @@ class PackagingDetailScreen extends StatelessWidget {
       {super.key, required this.admin, required this.packagingName});
 
   @override
-  Widget build(BuildContext context) => _Shell(
-      title: packagingName,
-      admin: admin,
-      child: ListView(children: [
-        Container(
-            height: 185,
-            decoration: _card(),
-            child: const Center(
-                child: PextAssetIcon(PextAssets.product, size: 88))),
-        const SizedBox(height: 20),
-        const Text('Composição',
-            style: TextStyle(
-                color: _blue, fontSize: 18, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 8),
-        const _PackagingDetailsCard(items: [
-          ('1518MM', '40%'),
-          ('FLEXUS 9212', '30%'),
-          ('HF2208S3', '30%'),
-        ]),
-        const SizedBox(height: 20),
-        const Text('Parâmetros de Produção',
-            style: TextStyle(
-                color: _blue, fontSize: 18, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 8),
-        const _PackagingDetailsCard(items: [
-          ('Temperatura', '180 °C'),
-          ('Temperatura do Cabeçote', '190 °C'),
-          ('Espessura final', '0,05 mm'),
-          ('Resfriamento', '32 °C'),
-          ('Pressão', '85 bar'),
-        ]),
-        if (admin) ...[
-          const SizedBox(height: 22),
-          Row(children: [
-            Expanded(
-                child: OutlinedButton.icon(
-                    onPressed: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                            builder: (_) =>
-                                PackagingRegistrationScreen(admin: admin))),
-                    icon: const Icon(Icons.edit_outlined, size: 18),
-                    label: const Text('Editar Embalagem',
-                        style: TextStyle(
-                            fontSize: 13, fontWeight: FontWeight.w600)),
-                    style: OutlinedButton.styleFrom(
-                        minimumSize: const Size(0, 40),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 8),
-                        foregroundColor: const Color(0xFF132B5C),
-                        side: const BorderSide(color: Color(0xFF132B5C)),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12))))),
-            const SizedBox(width: 8),
-            Expanded(
-                child: OutlinedButton.icon(
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                          content: Text('Embalagem excluída com sucesso.')));
-                      Navigator.of(context).pop();
-                    },
-                    icon: const Icon(Icons.delete_outline, size: 18),
-                    label: const Text('Excluir Embalagem',
-                        style: TextStyle(
-                            fontSize: 13, fontWeight: FontWeight.w600)),
-                    style: OutlinedButton.styleFrom(
-                        minimumSize: const Size(0, 40),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 8),
-                        foregroundColor: const Color(0xFFD93838),
-                        side: const BorderSide(color: Color(0xFFD93838)),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12))))),
+  Widget build(BuildContext context) {
+    final specification = PackagingCatalog.byName(packagingName);
+    return _Shell(
+        title: packagingName,
+        admin: admin,
+        child: ListView(children: [
+          Container(
+              height: 185,
+              decoration: _card(),
+              child: const Center(
+                  child: PextAssetIcon(PextAssets.product, size: 88))),
+          const SizedBox(height: 20),
+          const Text('Composição',
+              style: TextStyle(
+                  color: _blue, fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          const _PackagingDetailsCard(items: [
+            ('1518MM', '40%'),
+            ('FLEXUS 9212', '30%'),
+            ('HF2208S3', '30%'),
           ]),
-        ],
-      ]));
+          const SizedBox(height: 20),
+          const Text('Parâmetros de Produção',
+              style: TextStyle(
+                  color: _blue, fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          _PackagingDetailsCard(
+              items: specification.parameters
+                  .map((parameter) => (
+                        parameter.name,
+                        '${parameter.min} a ${parameter.max} ${parameter.unit}'
+                      ))
+                  .toList()),
+          if (admin) ...[
+            const SizedBox(height: 22),
+            Row(children: [
+              Expanded(
+                  child: OutlinedButton.icon(
+                      onPressed: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                              builder: (_) =>
+                                  PackagingRegistrationScreen(admin: admin))),
+                      icon: const Icon(Icons.edit_outlined, size: 18),
+                      label: const Text('Editar Embalagem',
+                          style: TextStyle(
+                              fontSize: 13, fontWeight: FontWeight.w600)),
+                      style: OutlinedButton.styleFrom(
+                          minimumSize: const Size(0, 40),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 8),
+                          foregroundColor: const Color(0xFF132B5C),
+                          side: const BorderSide(color: Color(0xFF132B5C)),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12))))),
+              const SizedBox(width: 8),
+              Expanded(
+                  child: OutlinedButton.icon(
+                      onPressed: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                                content:
+                                    Text('Embalagem excluída com sucesso.')));
+                        Navigator.of(context).pop();
+                      },
+                      icon: const Icon(Icons.delete_outline, size: 18),
+                      label: const Text('Excluir Embalagem',
+                          style: TextStyle(
+                              fontSize: 13, fontWeight: FontWeight.w600)),
+                      style: OutlinedButton.styleFrom(
+                          minimumSize: const Size(0, 40),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 8),
+                          foregroundColor: const Color(0xFFD93838),
+                          side: const BorderSide(color: Color(0xFFD93838)),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12))))),
+            ]),
+          ],
+        ]));
+  }
 }
 
 class _PackagingDetailsCard extends StatelessWidget {

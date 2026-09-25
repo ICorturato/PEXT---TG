@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../app_routes.dart';
+import '../../models/packaging_specification.dart';
 import '../../widgets/pext_asset_icon.dart';
 import '../../widgets/app_search_bar.dart';
 
@@ -43,7 +44,8 @@ class _TroubleshootingListScreenState extends State<TroubleshootingListScreen> {
                 onPressed: () => Navigator.push(
                     context,
                     MaterialPageRoute(
-                        builder: (_) => const TroubleshootingFormScreen())),
+                        builder: (_) =>
+                            TroubleshootingFormScreen(admin: widget.admin))),
                 icon: const Icon(Icons.add_circle_outline, color: _blue))
             : null,
         child: Column(children: [
@@ -58,7 +60,7 @@ class _TroubleshootingListScreenState extends State<TroubleshootingListScreen> {
                   subtitle: problem.$2,
                   onTap: () {
                     final page = widget.admin
-                        ? const TroubleshootingFormScreen()
+                        ? TroubleshootingFormScreen(admin: widget.admin)
                         : PackagingSelectionScreen(problem: problem.$1);
                     Navigator.push(
                         context, MaterialPageRoute(builder: (_) => page));
@@ -101,7 +103,8 @@ class PackagingSelectionScreen extends StatefulWidget {
 
 class _PackagingSelectionScreenState extends State<PackagingSelectionScreen> {
   String _query = '';
-  final _packages = const ['RAP10', 'Macarrão', 'KitKat'];
+  List<String> get _packages =>
+      PackagingCatalog.items.map((item) => item.name).toList();
 
   @override
   Widget build(BuildContext context) {
@@ -149,8 +152,48 @@ class ChecklistScreen extends StatefulWidget {
 }
 
 class _ChecklistScreenState extends State<ChecklistScreen> {
-  bool _temperatureOpen = true;
-  int _temperatureAnswer = 2;
+  late PackagingSpecification _specification;
+  final Set<int> _verified = {};
+  final Map<int, TextEditingController> _controllers = {};
+  int? _expandedIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    _specification = PackagingCatalog.byName(widget.packaging);
+  }
+
+  @override
+  void dispose() {
+    for (final controller in _controllers.values) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  TextEditingController _controllerFor(int index) =>
+      _controllers.putIfAbsent(index, TextEditingController.new);
+
+  void _changePackaging() => showModalBottomSheet<void>(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+          child: ListView(
+              shrinkWrap: true,
+              padding: const EdgeInsets.all(18),
+              children: PackagingCatalog.items
+                  .map((item) => ListTile(
+                      leading:
+                          const PextAssetIcon(PextAssets.product, size: 26),
+                      title: Text(item.name),
+                      onTap: () {
+                        Navigator.pop(sheetContext);
+                        setState(() {
+                          _specification = item;
+                          _verified.clear();
+                          _expandedIndex = null;
+                        });
+                      }))
+                  .toList())));
 
   @override
   Widget build(BuildContext context) => _TroubleScaffold(
@@ -158,18 +201,19 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
       child: Column(children: [
         const _ProblemStepper(current: 2),
         const SizedBox(height: 24),
-        const Align(
-            alignment: Alignment.centerLeft,
-            child: Text('Embalagem selecionada:',
-                style: TextStyle(fontWeight: FontWeight.bold))),
-        const SizedBox(height: 8),
-        _PackagingCard(
-            name: widget.packaging,
-            trailing: TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Trocar',
-                    style:
-                        TextStyle(color: _blue, fontWeight: FontWeight.bold)))),
+        Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: _card(),
+            child: Row(children: [
+              Expanded(
+                  child: Text('Embalagem selecionada: ${_specification.name}',
+                      style: const TextStyle(fontWeight: FontWeight.bold))),
+              TextButton(
+                  onPressed: _changePackaging,
+                  child: const Text('Trocar',
+                      style: TextStyle(
+                          color: _blue, fontWeight: FontWeight.bold))),
+            ])),
         const SizedBox(height: 20),
         const Align(
             alignment: Alignment.centerLeft,
@@ -177,37 +221,60 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
                 style: TextStyle(fontWeight: FontWeight.bold))),
         const SizedBox(height: 14),
         Expanded(
-            child: ListView(children: [
-          const _VerifiedChecklistCard('Espessura do cabeçote/matriz'),
-          _TemperatureChecklistCard(
-              expanded: _temperatureOpen,
-              selected: _temperatureAnswer,
-              onTap: () => setState(() => _temperatureOpen = !_temperatureOpen),
-              onAnswer: (value) => setState(() => _temperatureAnswer = value)),
-          const _DefaultChecklistCard('Espessura do cabeçote/matriz'),
-          const _DefaultChecklistCard('Quantidade de Polímeros'),
-          const _DefaultChecklistCard('Velocidade de Linha'),
-          const _DefaultChecklistCard('Pressão do sistema'),
-        ])),
+            child: ListView(
+                children: List.generate(
+                    _specification.enabledVerifications.length, (index) {
+          final parameter =
+              _specification.enabledVerifications.elementAt(index);
+          return _DynamicVerificationCard(
+              parameter: parameter,
+              controller: _controllerFor(index),
+              expanded: _expandedIndex == index,
+              verified: _verified.contains(index),
+              onMeasurement: (_) => setState(() {}),
+              onExpand: () => setState(() =>
+                  _expandedIndex = _expandedIndex == index ? null : index),
+              onVerify: () => setState(() {
+                    _verified.add(index);
+                    _expandedIndex = null;
+                  }));
+        }))),
         const SizedBox(height: 8),
         SizedBox(
             width: double.infinity,
             child: FilledButton(
-                onPressed: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => SolutionsScreen(
-                            problem: widget.problem,
-                            packaging: widget.packaging))),
-                child: const Text('PROXIMO')))
+                onPressed: _verified.length ==
+                        _specification.enabledVerifications.length
+                    ? () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => SolutionsScreen(
+                                problem: widget.problem,
+                                packaging: _specification.name,
+                                measurements: Map.fromEntries(List.generate(
+                                    _specification.enabledVerifications.length,
+                                    (index) => MapEntry(
+                                        _specification.enabledVerifications
+                                            .elementAt(index)
+                                            .name,
+                                        double.tryParse(_controllerFor(index)
+                                                .text
+                                                .replaceAll(',', '.')) ??
+                                            0))))))
+                    : null,
+                child: const Text('PRÓXIMO')))
       ]));
 }
 
 class SolutionsScreen extends StatelessWidget {
   final String problem;
   final String packaging;
+  final Map<String, double> measurements;
   const SolutionsScreen(
-      {super.key, required this.problem, required this.packaging});
+      {super.key,
+      required this.problem,
+      required this.packaging,
+      required this.measurements});
 
   @override
   Widget build(BuildContext context) => _TroubleScaffold(
@@ -223,21 +290,7 @@ class SolutionsScreen extends StatelessWidget {
             textAlign: TextAlign.center,
             style: TextStyle(fontWeight: FontWeight.bold)),
         const SizedBox(height: 18),
-        Expanded(
-            child: ListView(children: const [
-          _RecommendedSolutionCard(
-              'Temperatura muito alta',
-              'Temperatura do cilindro acima do recomendado para o material.',
-              'Reduza gradualmente a temperatura para a faixa de 160°C a 180°C.'),
-          _RecommendedSolutionCard(
-              'Velocidade da linha muito alta',
-              'Velocidade elevada pode não dar tempo suficiente para o material se estabilizar.',
-              'Reduza a velocidade da linha e monitore a espessura.'),
-          _RecommendedSolutionCard(
-              'Resfriamento insuficiente',
-              'Resfriamento inadequado pode causar encolhimento irregular do material.',
-              'Verifique o fluxo de água, temperatura e o posicionamento dos anéis de refrigeração.'),
-        ])),
+        Expanded(child: ListView(children: _solutions())),
         SizedBox(
             width: double.infinity,
             child: FilledButton(
@@ -248,43 +301,91 @@ class SolutionsScreen extends StatelessWidget {
         SizedBox(
             width: double.infinity,
             child: OutlinedButton(
-                onPressed: () => _showSupervisorModal(context),
+                onPressed: () => _showSupervisorModal(context,
+                    problem: problem,
+                    packaging: packaging,
+                    measurements: measurements),
                 child: const Text('NÃO CONSEGUI RESOLVER')))
       ]));
+
+  List<Widget> _solutions() {
+    final specification = PackagingCatalog.byName(packaging);
+    final recommendations = <Widget>[
+      _RecommendedSolutionCard('Guia de solução recomendado',
+          'Orientação geral para $problem.', _problemGuide(problem)),
+    ];
+    for (final parameter in specification.enabledVerifications) {
+      final measurement = measurements[parameter.name] ?? 0;
+      if (measurement < parameter.min || measurement > parameter.max) {
+        final above = measurement > parameter.max;
+        recommendations.add(_RecommendedSolutionCard(
+            '${parameter.name} ${above ? 'muito alta' : 'muito baixa'}',
+            '${parameter.name} medida em $measurement ${parameter.unit}; a faixa recomendada é de ${parameter.min} a ${parameter.max} ${parameter.unit}.',
+            '${above ? 'Reduza' : 'Aumente'} gradualmente o ajuste até ficar dentro da faixa recomendada.'));
+      }
+    }
+    if (recommendations.length == 1) {
+      recommendations.add(const _RecommendedSolutionCard(
+          'Parâmetros dentro da faixa',
+          'As medições verificadas estão dentro dos limites recomendados.',
+          'Monitore o processo e verifique componentes mecânicos caso o problema persista.'));
+    }
+    return recommendations;
+  }
 }
 
-void _showSupervisorModal(BuildContext context) => showModalBottomSheet<void>(
-    context: context,
-    backgroundColor: Colors.transparent,
-    builder: (sheetContext) => SafeArea(
-        top: false,
-        child: Container(
-            padding: const EdgeInsets.fromLTRB(22, 18, 22, 22),
-            decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(22))),
-            child: Column(mainAxisSize: MainAxisSize.min, children: [
-              Align(
-                  alignment: Alignment.centerRight,
-                  child: IconButton(
-                      onPressed: () => Navigator.pop(sheetContext),
-                      icon: const Icon(Icons.close, color: Color(0xFF363C46)))),
-              const Text('Não conseguiu resolver?',
-                  style: TextStyle(
-                      color: _blue, fontSize: 19, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 20),
-              SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                      onPressed: () {
-                        Navigator.pop(sheetContext);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
+String _problemGuide(String problem) {
+  const guides = {
+    'Variação na espessura':
+        'Ajuste a velocidade da linha gradualmente e confirme a estabilidade da matriz.',
+    'Falha de selagem':
+        'Verifique a temperatura, pressão e tempo de contato da selagem.',
+    'Rugosidade no filme':
+        'Inspecione a matriz, a alimentação e a condição do material antes de retomar a produção.',
+    'Bolhas no material':
+        'Verifique a secagem do material e a estabilidade da temperatura do cilindro.',
+  };
+  return guides[problem] ??
+      'Siga o procedimento operacional e acione o supervisor se a condição persistir.';
+}
+
+void _showSupervisorModal(BuildContext context,
+        {required String problem,
+        required String packaging,
+        required Map<String, double> measurements}) =>
+    showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16)),
+                titlePadding: const EdgeInsets.fromLTRB(22, 18, 8, 0),
+                title: Row(children: [
+                  const Expanded(
+                      child: Text('Não conseguiu resolver?',
+                          style: TextStyle(
+                              color: _blue,
+                              fontSize: 19,
+                              fontWeight: FontWeight.bold))),
+                  IconButton(
+                      tooltip: 'Fechar',
+                      onPressed: () => Navigator.pop(dialogContext),
+                      icon: const Icon(Icons.close))
+                ]),
+                content: const Text(
+                    'O supervisor receberá o problema, a embalagem e as medições registradas.'),
+                actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                actions: [
+                  SizedBox(
+                      width: double.infinity,
+                      child: FilledButton(
+                          onPressed: () {
+                            Navigator.pop(dialogContext);
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                                 content: Text(
-                                    'Solicitação enviada ao supervisor.')));
-                      },
-                      child: const Text('SOLICITAR SUPERVISOR')))
-            ]))));
+                                    'Solicitação enviada: $problem em $packaging (${measurements.length} medições).')));
+                          },
+                          child: const Text('SOLICITAR SUPERVISOR')))
+                ]));
 
 class _ProblemSearch extends StatelessWidget {
   final String hint;
@@ -356,6 +457,103 @@ class _PackageIcon extends StatelessWidget {
           border: Border.all(color: const Color(0xFF8A8F98)),
           borderRadius: BorderRadius.circular(12)),
       child: const PextAssetIcon(PextAssets.product, size: 28));
+}
+
+class _DynamicVerificationCard extends StatelessWidget {
+  final PackagingParameter parameter;
+  final TextEditingController controller;
+  final bool expanded;
+  final bool verified;
+  final ValueChanged<String> onMeasurement;
+  final VoidCallback onExpand;
+  final VoidCallback onVerify;
+  const _DynamicVerificationCard(
+      {required this.parameter,
+      required this.controller,
+      required this.expanded,
+      required this.verified,
+      required this.onMeasurement,
+      required this.onExpand,
+      required this.onVerify});
+
+  @override
+  Widget build(BuildContext context) {
+    final measurement = double.tryParse(controller.text.replaceAll(',', '.'));
+    final status = measurement == null
+        ? null
+        : measurement < parameter.min
+            ? 'Abaixo do recomendado'
+            : measurement > parameter.max
+                ? 'Acima do recomendado'
+                : 'Dentro da faixa recomendada';
+    final statusColor = status == 'Dentro da faixa recomendada'
+        ? const Color(0xFF1CBF66)
+        : const Color(0xFFD93838);
+    return Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        decoration: _card(),
+        child: Column(children: [
+          ListTile(
+              onTap: onExpand,
+              leading: verified
+                  ? const Icon(Icons.check_circle, color: Color(0xFF1CBF66))
+                  : const Icon(Icons.tune, color: _blue),
+              title: Text(parameter.name,
+                  style: const TextStyle(fontWeight: FontWeight.bold)),
+              subtitle: Text(verified ? 'Verificado' : 'Não verificado',
+                  style: TextStyle(
+                      color: verified ? const Color(0xFF1CBF66) : Colors.grey,
+                      fontSize: 12)),
+              trailing: Icon(
+                  expanded ? Icons.keyboard_arrow_up : Icons.chevron_right)),
+          if (expanded) ...[
+            Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                          'A faixa recomendada é de ${parameter.min} ${parameter.unit} a ${parameter.max} ${parameter.unit}.',
+                          style: const TextStyle(fontSize: 12)),
+                      const SizedBox(height: 10),
+                      TextField(
+                          controller: controller,
+                          onChanged: onMeasurement,
+                          keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true),
+                          decoration: InputDecoration(
+                              labelText: 'Valor medido',
+                              suffixText: parameter.unit,
+                              filled: true,
+                              fillColor: Colors.white,
+                              border: const OutlineInputBorder(
+                                  borderRadius:
+                                      BorderRadius.all(Radius.circular(10))))),
+                      if (status != null) ...[
+                        const SizedBox(height: 10),
+                        Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 7),
+                            decoration: BoxDecoration(
+                                color: statusColor.withValues(alpha: .12),
+                                borderRadius: BorderRadius.circular(8)),
+                            child: Text(status,
+                                style: TextStyle(
+                                    color: statusColor,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold))),
+                      ],
+                      const SizedBox(height: 10),
+                      SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                              onPressed: measurement == null ? null : onVerify,
+                              icon: const Icon(Icons.check, size: 18),
+                              label: const Text('MARCAR COMO VERIFICADO')))
+                    ]))
+          ]
+        ]));
+  }
 }
 
 class _VerifiedChecklistCard extends StatelessWidget {
@@ -646,28 +844,20 @@ const _checks = [
 ];
 
 class TroubleshootingFormScreen extends StatefulWidget {
-  const TroubleshootingFormScreen({super.key});
+  final bool admin;
+  const TroubleshootingFormScreen({super.key, this.admin = false});
   @override
   State<TroubleshootingFormScreen> createState() =>
       _TroubleshootingFormScreenState();
 }
 
 class _TroubleshootingFormScreenState extends State<TroubleshootingFormScreen> {
-  int _tab = 0;
-  final _checks = <String>[
-    'Temperatura da zona de fusão',
-    'Pressão de extrusão'
-  ];
   @override
   Widget build(BuildContext context) => _TroubleScaffold(
       title: 'Cadastrar problema',
+      admin: widget.admin,
       child: Column(children: [
-        _Tabs(
-            selected: _tab, onChanged: (value) => setState(() => _tab = value)),
-        const SizedBox(height: 16),
-        Expanded(
-            child: SingleChildScrollView(
-                child: _tab == 0 ? _general() : _verifications())),
+        Expanded(child: SingleChildScrollView(child: _general())),
         SizedBox(
             width: double.infinity,
             height: 52,
@@ -687,39 +877,10 @@ class _TroubleshootingFormScreenState extends State<TroubleshootingFormScreen> {
         const SizedBox(height: 8),
       ]));
   Widget _general() => const Column(children: [
-        _Field('Nome do problema'),
-        _Field('Descrição do problema', lines: 4),
-        _Field('Causa provável', lines: 3),
-        _Field('Solução recomendada', lines: 4)
-      ]);
-  Widget _verifications() =>
-      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('Verificações cadastradas',
-            style: TextStyle(
-                color: _blue, fontWeight: FontWeight.bold, fontSize: 16)),
-        const SizedBox(height: 10),
-        ..._checks.asMap().entries.map((entry) => Container(
-            margin: const EdgeInsets.only(bottom: 8),
-            padding: const EdgeInsets.all(12),
-            decoration: _card(),
-            child: Row(children: [
-              const Icon(Icons.drag_indicator, color: Color(0xFF7A8290)),
-              const SizedBox(width: 8),
-              Expanded(child: Text(entry.value)),
-              IconButton(
-                  onPressed: () => setState(() => _checks.removeAt(entry.key)),
-                  icon: const Icon(Icons.delete_outline))
-            ]))),
-        OutlinedButton.icon(
-            onPressed: () async {
-              final item = await Navigator.push<String>(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => const VerificationFormScreen()));
-              if (item != null) setState(() => _checks.add(item));
-            },
-            icon: const Icon(Icons.add),
-            label: const Text('Adicionar verificação'))
+        _Field('Título do Problema'),
+        _Field('Descrição / Sintomas', lines: 4),
+        _Field('Categoria / Ícone'),
+        _Field('Guia de Solução Recomendada', lines: 5)
       ]);
 }
 
