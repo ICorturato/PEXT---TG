@@ -196,52 +196,71 @@ class _TermsLetterGroup extends StatelessWidget {
                 borderRadius: BorderRadius.circular(11),
                 child: Column(children: [
                   for (var index = 0; index < terms.length; index++)
-                    InkWell(
-                        onTap: () => onTermTap(terms[index]),
-                        child: Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 14, vertical: 8),
-                            decoration: BoxDecoration(
-                                border: index == terms.length - 1
-                                    ? null
-                                    : const Border(
-                                        bottom: BorderSide(color: _border))),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: Text(terms[index].text('term'),
-                                      style: const TextStyle(fontSize: 16)),
-                                ),
-                                _TermFavoriteIconButton(termId: terms[index].id),
-                              ],
-                            )))
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 8),
+                      decoration: BoxDecoration(
+                          border: index == terms.length - 1
+                              ? null
+                              : const Border(
+                                  bottom: BorderSide(color: _border))),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: InkWell(
+                              onTap: () => onTermTap(terms[index]),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 4),
+                                child: Text(terms[index].text('term'),
+                                    style: const TextStyle(fontSize: 16)),
+                              ),
+                            ),
+                          ),
+                          _TermFavoriteIconButton(termId: terms[index].id),
+                        ],
+                      ),
+                    ),
                 ])))
       ]));
 }
 
-class _TermFavoriteIconButton extends StatelessWidget {
+class _TermFavoriteIconButton extends StatefulWidget {
   final String termId;
   const _TermFavoriteIconButton({required this.termId});
+
+  @override
+  State<_TermFavoriteIconButton> createState() => _TermFavoriteIconButtonState();
+}
+
+class _TermFavoriteIconButtonState extends State<_TermFavoriteIconButton> {
+  bool _toggling = false;
 
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
       listenable: FavoritesService.instance,
       builder: (context, _) {
-        final isFavorited = FavoritesService.instance.isFavorite(termId);
+        final isFavorited = FavoritesService.instance.isFavorite(widget.termId);
         return IconButton(
           icon: Icon(
             isFavorited ? Icons.favorite : Icons.favorite_border,
             size: 20,
             color: isFavorited ? const Color(0xFFEF4444) : const Color(0xFF9CA3AF),
           ),
-          onPressed: () async {
-            await FavoritesService.instance.toggleFavorite(
-              entityType: 'TERM',
-              entityId: termId,
-            );
-          },
+          onPressed: _toggling
+              ? null
+              : () async {
+                  setState(() => _toggling = true);
+                  try {
+                    await FavoritesService.instance.toggleFavorite(
+                      entityType: 'TERM',
+                      entityId: widget.termId,
+                    );
+                  } finally {
+                    if (mounted) setState(() => _toggling = false);
+                  }
+                },
           tooltip: 'Favoritar',
           padding: EdgeInsets.zero,
           constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
@@ -1072,16 +1091,6 @@ class _TrainingDetailScreenState extends State<TrainingDetailScreen> {
         entityId: _training!.id,
         itemData: _training!.toJson(),
       );
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(nowFav
-                ? 'Treinamento adicionado aos favoritos!'
-                : 'Removido dos favoritos.'),
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
     } catch (_) {}
   }
 
@@ -5988,167 +5997,63 @@ class _DoubtThreadScreenState extends State<DoubtThreadScreen> {
         title: 'Assistente IA',
         admin: widget.admin,
         child: Column(children: [
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: _card(),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          Expanded(
+            child: ListView(
+              controller: _scrollController,
+              padding: EdgeInsets.zero,
               children: [
-                const CircleAvatar(
-                  radius: 20,
-                  backgroundImage: AssetImage('images/profile_igor.png'),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: _card(),
+                  child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        '${_doubt.userName} - ${_doubt.createdAt}',
-                        style: const TextStyle(
-                            fontSize: 10, color: Color(0xFF737D8C)),
+                      const CircleAvatar(
+                        radius: 20,
+                        backgroundImage: AssetImage('images/profile_igor.png'),
                       ),
-                      const SizedBox(height: 6),
-                      if (_doubt.verificationData != null &&
-                          _doubt.verificationData!.isNotEmpty) ...[
-                        VerificationParametersCard(doubt: _doubt),
-                        Container(
-                          margin: const EdgeInsets.only(bottom: 10),
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF1F5F9),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: const Color(0xFFE2E8F0)),
-                          ),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Icon(Icons.info_outline, size: 16, color: Color(0xFF64748B)),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  _doubt.question.startsWith('Problema reportado:')
-                                      ? _doubt.question
-                                      : 'Problema reportado: ${_doubt.question}',
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                    color: Color(0xFF334155),
-                                  ),
-                                ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '${_doubt.userName} - ${_doubt.createdAt}',
+                              style: const TextStyle(
+                                  fontSize: 10, color: Color(0xFF737D8C)),
+                            ),
+                            const SizedBox(height: 6),
+                            if (_doubt.verificationData != null &&
+                                _doubt.verificationData!.isNotEmpty) ...[
+                              VerificationParametersCard(doubt: _doubt),
+                            ] else ...[
+                              Text(
+                                _doubt.question,
+                                style: const TextStyle(
+                                    fontSize: 15, fontWeight: FontWeight.bold),
+                                softWrap: true,
                               ),
                             ],
-                          ),
+                            const SizedBox(height: 6),
+                            _StatusBadge(
+                              label:
+                                  _doubt.isAnswered ? 'RESPONDIDA' : 'ABERTA',
+                              color: _doubt.isAnswered
+                                  ? const Color(0xFF20BF64)
+                                  : const Color(0xFFF8494E),
+                            ),
+                          ],
                         ),
-                      ] else ...[
-                        Text(
-                          _doubt.question,
-                          style: const TextStyle(
-                              fontSize: 15, fontWeight: FontWeight.bold),
-                        ),
-                      ],
-                      const SizedBox(height: 6),
-                      _StatusBadge(
-                        label:
-                            _doubt.isAnswered ? 'RESPONDIDA' : 'ABERTA',
-                        color: _doubt.isAnswered
-                            ? const Color(0xFF20BF64)
-                            : const Color(0xFFF8494E),
                       ),
                     ],
                   ),
                 ),
+                if (_doubt.messages.isNotEmpty) const SizedBox(height: 14),
+                for (var index = 0; index < _doubt.messages.length; index++) ...[
+                  if (index > 0) const SizedBox(height: 12),
+                  _buildMessageBubble(_doubt.messages[index]),
+                ],
               ],
-            ),
-          ),
-          const SizedBox(height: 14),
-          Expanded(
-            child: ListView.separated(
-              controller: _scrollController,
-              itemCount: _doubt.messages.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 12),
-              itemBuilder: (_, index) {
-                final message = _doubt.messages[index];
-                if (message.isAdmin) {
-                  return Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF0F4FA),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFFD0DCEE)),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(children: [
-                          const CircleAvatar(
-                            radius: 14,
-                            backgroundImage:
-                                AssetImage('images/profile_igor.png'),
-                          ),
-                          const SizedBox(width: 8),
-                          const _StatusBadge(label: 'ADM', color: _blue),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              message.senderName,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13,
-                                  color: _blue),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            message.createdAt,
-                            style: const TextStyle(
-                                fontSize: 9, color: Color(0xFF737D8C)),
-                          ),
-                        ]),
-                        const SizedBox(height: 8),
-                        Text(
-                          message.text,
-                          style: const TextStyle(
-                              fontSize: 13, color: Color(0xFF1F2937)),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-
-                return Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: _card(),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(children: [
-                        Expanded(
-                          child: Text(
-                            message.senderName,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                                fontWeight: FontWeight.w600, fontSize: 12),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          message.createdAt,
-                          style: const TextStyle(
-                              fontSize: 9, color: Color(0xFF737D8C)),
-                        ),
-                      ]),
-                      const SizedBox(height: 6),
-                      Text(
-                        message.text,
-                        style: const TextStyle(
-                            fontSize: 13, color: Color(0xFF374151)),
-                      ),
-                    ],
-                  ),
-                );
-              },
             ),
           ),
           const SizedBox(height: 10),
@@ -6191,24 +6096,111 @@ class _DoubtThreadScreenState extends State<DoubtThreadScreen> {
           ),
         ]),
       );
+
+  Widget _buildMessageBubble(DoubtMessage message) {
+    if (message.isAdmin) {
+      return Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF0F4FA),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFD0DCEE)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(children: [
+              const CircleAvatar(
+                radius: 14,
+                backgroundImage:
+                    AssetImage('images/profile_igor.png'),
+              ),
+              const SizedBox(width: 8),
+              const _StatusBadge(label: 'ADM', color: _blue),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  message.senderName,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      color: _blue),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                message.createdAt,
+                style: const TextStyle(
+                    fontSize: 9, color: Color(0xFF737D8C)),
+              ),
+            ]),
+            const SizedBox(height: 8),
+            Text(
+              message.text,
+              style: const TextStyle(
+                  fontSize: 13, color: Color(0xFF1F2937)),
+              softWrap: true,
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: _card(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Expanded(
+              child: Text(
+                message.senderName,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                    fontWeight: FontWeight.w600, fontSize: 12),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              message.createdAt,
+              style: const TextStyle(
+                  fontSize: 9, color: Color(0xFF737D8C)),
+            ),
+          ]),
+          const SizedBox(height: 6),
+          Text(
+            message.text,
+            style: const TextStyle(
+                fontSize: 13, color: Color(0xFF374151)),
+            softWrap: true,
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class VerificationParametersCard extends StatelessWidget {
   final DoubtModel? doubt;
   final List<VerificationParameterItem>? parameters;
   final String? packagingName;
+  final String? problemDescription;
 
   const VerificationParametersCard({
     super.key,
     this.doubt,
     this.parameters,
     this.packagingName,
+    this.problemDescription,
   });
 
   @override
   Widget build(BuildContext context) {
     final list = parameters ?? doubt?.parsedVerificationParameters ?? const [];
-    final packaging = packagingName ?? doubt?.targetPackagingName ?? 'Padrão';
+    final packaging = packagingName ?? doubt?.targetPackagingName ?? 'teste';
+    final reportedProblem = problemDescription ?? doubt?.question;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -6216,120 +6208,64 @@ class VerificationParametersCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFFF8FAFC),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFCBD5E1)),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              const Icon(Icons.rule_outlined, size: 16, color: _blue),
-              const SizedBox(width: 6),
-              const Expanded(
-                child: Text(
-                  'Parâmetros de Verificação',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
-                    color: _blue,
-                  ),
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE2E8F0),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(
-                  'Embalagem: $packaging',
-                  style: const TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF334155),
-                  ),
-                ),
-              ),
-            ],
+          Text(
+            '📋 Parâmetros de Verificação (Embalagem: $packaging)',
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 13,
+              color: Color(0xFF1E293B),
+            ),
+            softWrap: true,
           ),
           const SizedBox(height: 8),
           if (list.isEmpty && doubt?.verificationData?['parameters'] is List) ...[
             ...((doubt!.verificationData!['parameters'] as List).map((p) {
               final map = Map<String, dynamic>.from(p as Map);
-              return _buildRow(VerificationParameterItem.fromJson(map));
+              final item = VerificationParameterItem.fromJson(map);
+              return _buildLine(item);
             })),
           ] else ...[
-            for (final p in list) _buildRow(p),
+            for (final p in list) _buildLine(p),
+          ],
+          if (reportedProblem != null && reportedProblem.trim().isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Text(
+              reportedProblem.startsWith('Problema reportado:')
+                  ? reportedProblem
+                  : 'Problema reportado: $reportedProblem',
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF1E293B),
+                height: 1.35,
+              ),
+              softWrap: true,
+            ),
           ],
         ],
       ),
     );
   }
 
-  Widget _buildRow(VerificationParameterItem item) {
-    final inRange = item.isWithinRange;
-    final badgeBg = inRange ? const Color(0xFFDCFCE7) : const Color(0xFFFEE2E2);
-    final badgeText = inRange ? const Color(0xFF16A34A) : const Color(0xFFDC2626);
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 6),
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  item.parameterName,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF1E293B),
-                  ),
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: badgeBg,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  item.deviation.startsWith('Desvio') ? item.deviation : 'Desvio: ${item.deviation}',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: badgeText,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Row(
-            children: [
-              Text(
-                'Alvo: ${item.target}',
-                style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                'Lido: ${item.measuredValue}',
-                style: const TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF334155),
-                ),
-              ),
-            ],
-          ),
-        ],
+  Widget _buildLine(VerificationParameterItem item) {
+    final devText = item.deviation.startsWith('Desvio')
+        ? item.deviation.replaceFirst('Desvio: ', '')
+        : item.deviation;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Text(
+        '• ${item.parameterName}: ${item.measuredValue} (Alvo: ${item.target} | Desvio: $devText)',
+        style: const TextStyle(
+          fontSize: 12,
+          color: Color(0xFF334155),
+          height: 1.35,
+        ),
+        softWrap: true,
       ),
     );
   }
@@ -7151,13 +7087,20 @@ class DetalhesConteudoScreen extends StatelessWidget {
               date: entry.date,
               title: entry.title,
               text: entry.description,
-              onVersion: (entry.previousContent != null || entry.newContent != null)
+              onVersion: (entry.previousContent != null ||
+                      entry.newContent != null ||
+                      entry.previousFileName != null ||
+                      entry.newFileName != null)
                   ? () => Navigator.of(context).push(
                         MaterialPageRoute(
                           builder: (_) => ComparacaoVersoesConteudoScreen(
                             currentContent: item,
                             previousSnapshot: entry.previousContent,
                             newSnapshot: entry.newContent,
+                            previousFileName: entry.previousFileName,
+                            newFileName: entry.newFileName,
+                            previousFileUrl: entry.previousFileUrl,
+                            newFileUrl: entry.newFileUrl,
                             author: entry.authorName,
                             date: entry.date,
                           ),
@@ -7284,6 +7227,10 @@ class ComparacaoVersoesConteudoScreen extends StatelessWidget {
   final ContentModel? currentContent;
   final Map<String, dynamic>? previousSnapshot;
   final Map<String, dynamic>? newSnapshot;
+  final String? previousFileName;
+  final String? newFileName;
+  final String? previousFileUrl;
+  final String? newFileUrl;
   final String? author;
   final String? date;
 
@@ -7292,6 +7239,10 @@ class ComparacaoVersoesConteudoScreen extends StatelessWidget {
     this.currentContent,
     this.previousSnapshot,
     this.newSnapshot,
+    this.previousFileName,
+    this.newFileName,
+    this.previousFileUrl,
+    this.newFileUrl,
     this.author,
     this.date,
   });
@@ -7310,17 +7261,24 @@ class ComparacaoVersoesConteudoScreen extends StatelessWidget {
         currentContent?.text ??
         'Quando identificado material irregular na matriz, a peça deve ser imediatamente segregada e registrada como não conforme. A ocorrência deve ser avaliada conforme o padrão de qualidade vigente.';
 
-    final prevDoc = previousSnapshot?['documentName']?.toString();
+    final prevDoc = previousFileName ??
+        previousSnapshot?['previous_file_name']?.toString() ??
+        previousSnapshot?['previousFileName']?.toString() ??
+        previousSnapshot?['documentName']?.toString();
     final hasPrevDoc = prevDoc != null && prevDoc.trim().isNotEmpty;
 
-    final curDoc = newSnapshot != null
-        ? newSnapshot!['documentName']?.toString()
-        : currentContent?.documentName;
+    final curDoc = newFileName ??
+        newSnapshot?['new_file_name']?.toString() ??
+        newSnapshot?['newFileName']?.toString() ??
+        newSnapshot?['documentName']?.toString() ??
+        (newSnapshot == null && previousFileName == null && newFileName == null ? currentContent?.documentName : null);
     final hasCurDoc = curDoc != null && curDoc.trim().isNotEmpty;
 
-    final curDocUrl = newSnapshot != null
-        ? newSnapshot!['documentUrl']?.toString()
-        : currentContent?.documentUrl;
+    final curDocUrl = newFileUrl ??
+        newSnapshot?['new_file_url']?.toString() ??
+        newSnapshot?['newFileUrl']?.toString() ??
+        newSnapshot?['documentUrl']?.toString() ??
+        (newSnapshot == null && previousFileUrl == null && newFileUrl == null ? currentContent?.documentUrl : null);
 
     final bool isUnchanged = (hasPrevDoc && hasCurDoc && prevDoc == curDoc) || (!hasPrevDoc && !hasCurDoc);
 
@@ -9141,38 +9099,42 @@ class _TabBar extends StatelessWidget {
           .toList());
 }
 
-class _TrainingFavoriteIconButton extends StatelessWidget {
+class _TrainingFavoriteIconButton extends StatefulWidget {
   final String trainingId;
   const _TrainingFavoriteIconButton({required this.trainingId});
+
+  @override
+  State<_TrainingFavoriteIconButton> createState() => _TrainingFavoriteIconButtonState();
+}
+
+class _TrainingFavoriteIconButtonState extends State<_TrainingFavoriteIconButton> {
+  bool _toggling = false;
 
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
       listenable: FavoritesService.instance,
       builder: (context, _) {
-        final isFavorited = FavoritesService.instance.isFavorite(trainingId);
+        final isFavorited = FavoritesService.instance.isFavorite(widget.trainingId);
         return IconButton(
           icon: Icon(
             isFavorited ? Icons.favorite : Icons.favorite_border,
             size: 20,
             color: isFavorited ? const Color(0xFFEF4444) : const Color(0xFF9CA3AF),
           ),
-          onPressed: () async {
-            final nowFav = await FavoritesService.instance.toggleFavorite(
-              entityType: 'TRAINING',
-              entityId: trainingId,
-            );
-            if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(nowFav
-                      ? 'Treinamento adicionado aos favoritos!'
-                      : 'Removido dos favoritos.'),
-                  duration: const Duration(seconds: 2),
-                ),
-              );
-            }
-          },
+          onPressed: _toggling
+              ? null
+              : () async {
+                  setState(() => _toggling = true);
+                  try {
+                    await FavoritesService.instance.toggleFavorite(
+                      entityType: 'TRAINING',
+                      entityId: widget.trainingId,
+                    );
+                  } finally {
+                    if (mounted) setState(() => _toggling = false);
+                  }
+                },
           tooltip: 'Favoritar',
           padding: EdgeInsets.zero,
           constraints: const BoxConstraints(minWidth: 32, minHeight: 32),

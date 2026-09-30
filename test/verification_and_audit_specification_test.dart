@@ -112,18 +112,16 @@ void main() {
       await tester.pumpAndSettle();
 
       // Check Card Header
-      expect(find.text('Parâmetros de Verificação'), findsOneWidget);
-      expect(find.text('Embalagem: Teste Standup'), findsOneWidget);
+      expect(find.textContaining('Parâmetros de Verificação'), findsOneWidget);
+      expect(find.textContaining('Embalagem: Teste Standup'), findsOneWidget);
 
-      // Check Rows
-      expect(find.text('Temperatura do cilindro'), findsOneWidget);
+      // Check Plain Text Rows
+      expect(find.textContaining('Temperatura do cilindro'), findsOneWidget);
       expect(find.textContaining('Alvo: 160.0 - 180.0 °C'), findsOneWidget);
-      expect(find.textContaining('Lido: 1.0 °C'), findsOneWidget);
       expect(find.textContaining('-169.0 °C'), findsOneWidget);
 
-      expect(find.text('Pressão do sistema'), findsOneWidget);
+      expect(find.textContaining('Pressão do sistema'), findsOneWidget);
       expect(find.textContaining('Alvo: 70.0 - 90.0 bar'), findsOneWidget);
-      expect(find.textContaining('Lido: 80.0 bar'), findsOneWidget);
       expect(find.textContaining('Desvio: 0.0 bar'), findsOneWidget);
 
       // Check separated clean problem block

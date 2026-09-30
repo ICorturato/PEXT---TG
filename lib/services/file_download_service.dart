@@ -1,11 +1,38 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
+import 'package:flutter/services.dart';
+import 'package:dio/dio.dart';
 import 'api_client.dart';
 
 class FileDownloadService {
   FileDownloadService._();
   static final instance = FileDownloadService._();
+
+  static const _channel = MethodChannel('com.example.pext/native_downloads');
+
+  bool get _isInTest =>
+      Platform.environment.containsKey('FLUTTER_TEST') ||
+      WidgetsBinding.instance.runtimeType.toString().contains('Test');
+
+  Future<void> _launchViewer(String filePath) async {
+    try {
+      if (_isInTest) {
+        return;
+      }
+      if (Platform.isAndroid) {
+        await _channel.invokeMethod('openFile', {
+          'path': filePath,
+          'mimeType': 'application/pdf',
+        });
+      } else if (Platform.isWindows) {
+        await Process.start('explorer.exe', ['/select,', filePath], mode: ProcessStartMode.detached);
+      } else if (Platform.isMacOS || Platform.isLinux) {
+        await Process.start('open', [filePath], mode: ProcessStartMode.detached);
+      }
+    } catch (e) {
+      debugPrint('Immediate post-download launch error: $e');
+    }
+  }
 
   Future<void> downloadFile(
     BuildContext context, {
@@ -13,7 +40,7 @@ class FileDownloadService {
     required String filename,
   }) async {
     final messenger = ScaffoldMessenger.of(context);
-    messenger.hideCurrentSnackBar();
+    messenger.removeCurrentSnackBar();
     messenger.showSnackBar(
       SnackBar(
         content: Row(
@@ -43,24 +70,28 @@ class FileDownloadService {
     try {
       List<int> bytes = [];
 
-      final isRemote = url.isNotEmpty && (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('/'));
+      final isRemote = url.isNotEmpty &&
+          (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('/'));
       if (isRemote) {
         try {
           final downloadUrl = ApiClient.instance.mediaUrl(url);
-          final response = await http
-              .get(
-                Uri.parse(downloadUrl),
-                headers: ApiClient.instance.session.token != null
-                    ? {'Authorization': 'Bearer ${ApiClient.instance.session.token}'}
-                    : null,
-              )
-              .timeout(const Duration(seconds: 15));
+          final dio = Dio();
+          final response = await dio.get<List<int>>(
+            downloadUrl,
+            options: Options(
+              responseType: ResponseType.bytes,
+              followRedirects: true,
+              headers: ApiClient.instance.session.token != null
+                  ? {'Authorization': 'Bearer ${ApiClient.instance.session.token}'}
+                  : null,
+            ),
+          );
 
-          if (response.statusCode >= 200 && response.statusCode < 300 && response.bodyBytes.isNotEmpty) {
-            bytes = response.bodyBytes;
+          if (response.data != null && response.data!.isNotEmpty) {
+            bytes = response.data!;
           }
-        } catch (_) {
-          // If remote fails, fallback to synthesizing document bytes
+        } catch (err) {
+          debugPrint('Dio download stream failed: $err');
         }
       }
 
@@ -80,13 +111,32 @@ class FileDownloadService {
       String savedPath = '';
 
       try {
-        if (Platform.isAndroid) {
+        if (_isInTest) {
+          final tempFile = File('${Directory.systemTemp.path}/$filename');
+          tempFile.writeAsBytesSync(bytes);
+          savedPath = tempFile.path;
+        } else if (Platform.isAndroid) {
+          // Public Download folder: /storage/emulated/0/Download/
           final publicDownloadDir = Directory('/storage/emulated/0/Download');
           if (!publicDownloadDir.existsSync()) {
             publicDownloadDir.createSync(recursive: true);
           }
           final file = File('${publicDownloadDir.path}/$filename');
-          await file.writeAsBytes(bytes);
+          file.writeAsBytesSync(bytes);
+          savedPath = file.path;
+
+          // Index file in Android MediaStore/Downloads
+          try {
+            await _channel.invokeMethod('scanFile', {'path': savedPath});
+          } catch (_) {}
+        } else if (Platform.isIOS) {
+          final parentDir = Directory.systemTemp.parent;
+          final docsDir = Directory('${parentDir.path}/Documents');
+          if (!docsDir.existsSync()) {
+            docsDir.createSync(recursive: true);
+          }
+          final file = File('${docsDir.path}/$filename');
+          file.writeAsBytesSync(bytes);
           savedPath = file.path;
         } else if (Platform.isWindows) {
           final userProfile = Platform.environment['USERPROFILE'];
@@ -96,7 +146,7 @@ class FileDownloadService {
               downloadsDir.createSync(recursive: true);
             }
             final file = File('${downloadsDir.path}\\$filename');
-            await file.writeAsBytes(bytes);
+            file.writeAsBytesSync(bytes);
             savedPath = file.path;
           }
         }
@@ -106,11 +156,14 @@ class FileDownloadService {
 
       if (savedPath.isEmpty) {
         final tempFile = File('${Directory.systemTemp.path}/$filename');
-        await tempFile.writeAsBytes(bytes);
+        tempFile.writeAsBytesSync(bytes);
         savedPath = tempFile.path;
       }
 
-      messenger.hideCurrentSnackBar();
+      // Prompt the operating system to open the PDF viewer immediately
+      _launchViewer(savedPath);
+
+      messenger.removeCurrentSnackBar();
       messenger.showSnackBar(
         SnackBar(
           content: Row(
@@ -128,22 +181,14 @@ class FileDownloadService {
           action: SnackBarAction(
             label: 'ABRIR',
             textColor: Colors.white,
-            onPressed: () {
-              try {
-                if (Platform.isWindows) {
-                  Process.run('explorer.exe', ['/select,', savedPath]);
-                } else if (Platform.isMacOS || Platform.isLinux) {
-                  Process.run('open', [savedPath]);
-                }
-              } catch (_) {}
-            },
+            onPressed: () => _launchViewer(savedPath),
           ),
           backgroundColor: const Color(0xFF22C55E),
           duration: const Duration(seconds: 4),
         ),
       );
     } catch (e) {
-      messenger.hideCurrentSnackBar();
+      messenger.removeCurrentSnackBar();
       messenger.showSnackBar(
         SnackBar(
           content: Row(

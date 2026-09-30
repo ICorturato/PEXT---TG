@@ -625,14 +625,6 @@ class _ResinDetailScreenState extends State<ResinDetailScreen> {
       setState(() {
         _resin = _resin!.copyWith(isFavorite: isFav);
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(isFav
-              ? 'Resina adicionada aos favoritos!'
-              : 'Removida dos favoritos.'),
-          duration: const Duration(seconds: 2),
-        ),
-      );
     }
   }
 

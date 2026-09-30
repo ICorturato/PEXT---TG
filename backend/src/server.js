@@ -76,6 +76,14 @@ class Store {
           date: '02/08/2026 - 09:43',
           title: 'Maria editou o conteúdo',
           description: 'Alterações:\n- Inclusão de Documento',
+          previous_file_name: null,
+          previous_file_url: null,
+          new_file_name: 'Ficha Técnica.pdf',
+          new_file_url: '/uploads/sample_spec.pdf',
+          previousFileName: null,
+          previousFileUrl: null,
+          newFileName: 'Ficha Técnica.pdf',
+          newFileUrl: '/uploads/sample_spec.pdf',
           previousContent: {
             title: 'Material irregular na matriz',
             text: 'Quando identificado material irregular na matriz, realizar a inspeção da peça e verificar se a ocorrência compromete o padrão de qualidade estabelecido. Caso seja constatada irregularidade, separar a peça e encaminhá-la para avaliação.',
@@ -101,6 +109,14 @@ class Store {
           date: '05/08/2026 - 09:43',
           title: 'Jorge editou o conteúdo',
           description: 'Alterações:\n- Removeu um documento',
+          previous_file_name: 'Ficha Técnica.pdf',
+          previous_file_url: '/uploads/sample_spec.pdf',
+          new_file_name: null,
+          new_file_url: null,
+          previousFileName: 'Ficha Técnica.pdf',
+          previousFileUrl: '/uploads/sample_spec.pdf',
+          newFileName: null,
+          newFileUrl: null,
           previousContent: {
             title: 'Material irregular na matriz',
             text: 'Quando identificado material irregular na matriz, a peça deve ser imediatamente segregada e registrada como não conforme. A ocorrência deve ser avaliada conforme o padrão de qualidade vigente.',
@@ -1166,6 +1182,24 @@ async function contentRoutes(req, res, url, parts) {
       date: dateFormatted,
     };
 
+    const previous_file_name = item.documentName || null;
+    const previous_file_url = item.documentUrl || null;
+    const new_file_name = documentRemoved ? null : (input.documentName !== undefined ? input.documentName : item.documentName) || null;
+    const new_file_url = documentRemoved ? null : (input.documentUrl !== undefined ? input.documentUrl : item.documentUrl) || null;
+
+    store.data.content_change_logs = store.data.content_change_logs || [];
+    store.data.content_change_logs.push({
+      id: randomUUID(),
+      content_id: item.id,
+      changed_by: current.id || 'admin',
+      previous_file_name,
+      previous_file_url,
+      new_file_name,
+      new_file_url,
+      action_type: documentRemoved ? 'DELETED' : 'UPDATED',
+      created_at: now.toISOString(),
+    });
+
     item.history.push({
       id: randomUUID(),
       authorName: current.name || 'Maria',
@@ -1174,6 +1208,14 @@ async function contentRoutes(req, res, url, parts) {
       date: dateFormatted,
       title: `${current.name || 'Maria'} editou o conteúdo`,
       description: changeDescription,
+      previousFileName: previous_file_name,
+      previousFileUrl: previous_file_url,
+      newFileName: new_file_name,
+      newFileUrl: new_file_url,
+      previous_file_name,
+      previous_file_url,
+      new_file_name,
+      new_file_url,
       previousContent: previousSnapshot,
       newContent: newSnapshot,
     });
@@ -1187,6 +1229,14 @@ async function contentRoutes(req, res, url, parts) {
         date: dateFormatted,
         title: `${current.name || 'Maria'} removeu o documento`,
         description: 'Documento anexado foi removido.',
+        previousFileName: previous_file_name,
+        previousFileUrl: previous_file_url,
+        newFileName: null,
+        newFileUrl: null,
+        previous_file_name,
+        previous_file_url,
+        new_file_name: null,
+        new_file_url: null,
         previousContent: previousSnapshot,
         newContent: {
           ...newSnapshot,

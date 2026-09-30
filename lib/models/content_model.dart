@@ -6,6 +6,10 @@ class ContentAuditEntry {
   final String date;
   final String title;
   final String description;
+  final String? previousFileName;
+  final String? previousFileUrl;
+  final String? newFileName;
+  final String? newFileUrl;
   final Map<String, dynamic>? previousContent;
   final Map<String, dynamic>? newContent;
 
@@ -17,6 +21,10 @@ class ContentAuditEntry {
     required this.date,
     required this.title,
     required this.description,
+    this.previousFileName,
+    this.previousFileUrl,
+    this.newFileName,
+    this.newFileUrl,
     this.previousContent,
     this.newContent,
   });
@@ -24,18 +32,40 @@ class ContentAuditEntry {
   Map<String, dynamic>? get previousFileSnapshot => previousContent;
   Map<String, dynamic>? get newFileSnapshot => newContent;
 
-  factory ContentAuditEntry.fromJson(Map<String, dynamic> json) =>
-      ContentAuditEntry(
-        id: json['id']?.toString() ?? '',
-        authorName: json['authorName']?.toString() ?? 'Administrador',
-        authorRole: json['authorRole']?.toString() ?? 'ADMIN',
-        action: json['action']?.toString() ?? 'UPDATE',
-        date: json['date']?.toString() ?? '',
-        title: json['title']?.toString() ?? '',
-        description: json['description']?.toString() ?? '',
-        previousContent: (json['previousContent'] ?? json['previousFileSnapshot']) as Map<String, dynamic>?,
-        newContent: (json['newContent'] ?? json['newFileSnapshot']) as Map<String, dynamic>?,
-      );
+  factory ContentAuditEntry.fromJson(Map<String, dynamic> json) {
+    final prevContent = (json['previousContent'] ?? json['previousFileSnapshot']) as Map<String, dynamic>?;
+    final nContent = (json['newContent'] ?? json['newFileSnapshot']) as Map<String, dynamic>?;
+
+    final prevName = json['previous_file_name']?.toString() ??
+        json['previousFileName']?.toString() ??
+        prevContent?['documentName']?.toString();
+    final prevUrl = json['previous_file_url']?.toString() ??
+        json['previousFileUrl']?.toString() ??
+        prevContent?['documentUrl']?.toString();
+
+    final nName = json['new_file_name']?.toString() ??
+        json['newFileName']?.toString() ??
+        nContent?['documentName']?.toString();
+    final nUrl = json['new_file_url']?.toString() ??
+        json['newFileUrl']?.toString() ??
+        nContent?['documentUrl']?.toString();
+
+    return ContentAuditEntry(
+      id: json['id']?.toString() ?? '',
+      authorName: json['authorName']?.toString() ?? 'Administrador',
+      authorRole: json['authorRole']?.toString() ?? 'ADMIN',
+      action: json['action']?.toString() ?? 'UPDATE',
+      date: json['date']?.toString() ?? '',
+      title: json['title']?.toString() ?? '',
+      description: json['description']?.toString() ?? '',
+      previousFileName: prevName,
+      previousFileUrl: prevUrl,
+      newFileName: nName,
+      newFileUrl: nUrl,
+      previousContent: prevContent,
+      newContent: nContent,
+    );
+  }
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -45,6 +75,14 @@ class ContentAuditEntry {
         'date': date,
         'title': title,
         'description': description,
+        if (previousFileName != null) 'previous_file_name': previousFileName,
+        if (previousFileName != null) 'previousFileName': previousFileName,
+        if (previousFileUrl != null) 'previous_file_url': previousFileUrl,
+        if (previousFileUrl != null) 'previousFileUrl': previousFileUrl,
+        if (newFileName != null) 'new_file_name': newFileName,
+        if (newFileName != null) 'newFileName': newFileName,
+        if (newFileUrl != null) 'new_file_url': newFileUrl,
+        if (newFileUrl != null) 'newFileUrl': newFileUrl,
         if (previousContent != null) 'previousContent': previousContent,
         if (newContent != null) 'newContent': newContent,
       };

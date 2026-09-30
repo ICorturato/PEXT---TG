@@ -1259,14 +1259,6 @@ class _FavoritesPageState extends State<FavoritesPage> {
         entityType: entityType,
         entityId: entityId,
       );
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Removido dos favoritos.'),
-            duration: Duration(seconds: 2),
-          ),
-        );
-      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

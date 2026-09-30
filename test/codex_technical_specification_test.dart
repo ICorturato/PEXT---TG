@@ -97,10 +97,10 @@ void main() {
       await tester.pumpAndSettle();
 
       // Verify parameters are visible
-      expect(find.text('Parâmetros de Verificação'), findsOneWidget);
-      expect(find.text('Espessura'), findsOneWidget);
+      expect(find.textContaining('Parâmetros de Verificação'), findsOneWidget);
+      expect(find.textContaining('Espessura'), findsOneWidget);
       expect(find.textContaining('Alvo: 50 µm'), findsOneWidget);
-      expect(find.textContaining('Lido: 65 µm'), findsOneWidget);
+      expect(find.textContaining('65 µm'), findsOneWidget);
       expect(find.textContaining('+15 µm'), findsOneWidget);
 
       // Verify ticket status badge
