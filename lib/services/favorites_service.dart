@@ -1,9 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'api_client.dart';
 
-class FavoritesService extends ChangeNotifier {
-  static final FavoritesService instance = FavoritesService._internal();
-  FavoritesService._internal();
+class FavoritesNotifier extends ChangeNotifier {
+  static final FavoritesNotifier instance = FavoritesNotifier._internal();
+  FavoritesNotifier._internal();
 
   final Set<String> _favoritedItemIds = <String>{};
   List<Map<String, dynamic>> _terms = [];
@@ -12,11 +12,13 @@ class FavoritesService extends ChangeNotifier {
   bool _isLoading = false;
 
   Set<String> get favoritedItemIds => Set.unmodifiable(_favoritedItemIds);
+  Set<String> get state => Set.unmodifiable(_favoritedItemIds);
   List<Map<String, dynamic>> get terms => List.unmodifiable(_terms);
   List<Map<String, dynamic>> get trainings => List.unmodifiable(_trainings);
   List<Map<String, dynamic>> get resins => List.unmodifiable(_resins);
   bool get isLoading => _isLoading;
 
+  bool isFavorited(String id) => _favoritedItemIds.contains(id);
   bool isFavorite(String id) => _favoritedItemIds.contains(id);
 
   bool mockNetworkSuccessInTest = false;
@@ -44,6 +46,13 @@ class FavoritesService extends ChangeNotifier {
     try {
       final data = await ApiClient.instance.getFavorites();
       _favoritedItemIds.clear();
+
+      final items = data['items'] as List? ?? [];
+      for (final it in items) {
+        if (it is Map && it['entityId'] != null) {
+          _favoritedItemIds.add(it['entityId'].toString());
+        }
+      }
 
       final termsList = List<Map<String, dynamic>>.from(
         (data['terms'] as List? ?? []).map((e) => Map<String, dynamic>.from(e as Map)),
@@ -74,6 +83,10 @@ class FavoritesService extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     }
+  }
+
+  Future<bool> toggleFavoriteEntity(String id, String entityType) async {
+    return toggleFavorite(entityType: entityType, entityId: id);
   }
 
   Future<bool> toggleFavorite({
@@ -108,7 +121,7 @@ class FavoritesService extends ChangeNotifier {
         entityType: entityType,
         entityId: entityId,
       );
-      final isFav = res['isFavorited'] == true;
+      final isFav = res['favorite'] == true || res['isFavorited'] == true;
 
       // Sync with server response
       if (isFav) {
@@ -134,3 +147,6 @@ class FavoritesService extends ChangeNotifier {
     }
   }
 }
+
+typedef FavoritesService = FavoritesNotifier;
+typedef FavoritesProvider = FavoritesNotifier;

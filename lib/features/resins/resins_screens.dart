@@ -149,7 +149,10 @@ class _ResinsListScreenState extends State<ResinsListScreen> {
   }
 
   Future<void> _loadResins() async {
-    await _resinService.fetchResins(query: _query);
+    await Future.wait([
+      _resinService.fetchResins(query: _query),
+      FavoritesService.instance.loadFavorites(),
+    ]);
   }
 
   void _onSearchChanged(String value) {
@@ -615,13 +618,14 @@ class _ResinDetailScreenState extends State<ResinDetailScreen> {
   }
 
   Future<void> _toggleFavorite() async {
-    if (_resin == null) return;
+    final id = _resin?.id ?? widget.initialResin?.id;
+    if (id == null || id.isEmpty) return;
     final isFav = await FavoritesService.instance.toggleFavorite(
       entityType: 'RESIN',
-      entityId: _resin!.id,
-      itemData: _resin!.toJson(),
+      entityId: id,
+      itemData: _resin?.toJson() ?? widget.initialResin?.toJson(),
     );
-    if (mounted) {
+    if (mounted && _resin != null) {
       setState(() {
         _resin = _resin!.copyWith(isFavorite: isFav);
       });
@@ -714,11 +718,12 @@ class _ResinDetailScreenState extends State<ResinDetailScreen> {
             ),
           ),
           actions: [
-            if (!widget.admin && _resin != null)
+            if (!widget.admin)
               ListenableBuilder(
                 listenable: FavoritesService.instance,
                 builder: (context, _) {
-                  final isFav = FavoritesService.instance.isFavorite(_resin!.id);
+                  final id = _resin?.id ?? widget.initialResin?.id ?? '';
+                  final isFav = id.isNotEmpty && FavoritesService.instance.isFavorited(id);
                   return IconButton(
                     onPressed: _toggleFavorite,
                     icon: Icon(

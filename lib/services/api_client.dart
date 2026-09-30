@@ -110,6 +110,7 @@ class ApiClient {
     } else {
       if (_activeBaseUrl.isNotEmpty) candidates.add(_activeBaseUrl);
       candidates.add('http://127.0.0.1:3000/api/v1');
+      candidates.add('http://100.94.91.23:3000/api/v1');
       candidates.add('http://192.168.100.170:3000/api/v1');
       candidates.add('http://10.0.2.2:3000/api/v1');
     }

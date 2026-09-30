@@ -93,6 +93,7 @@ class _TermsDictionaryScreenState extends State<TermsDictionaryScreen> {
   void initState() {
     super.initState();
     _loadTerms();
+    FavoritesService.instance.loadFavorites();
   }
 
   Future<void> _loadTerms() async {
@@ -296,6 +297,12 @@ class DetalhesTermoScreen extends StatefulWidget {
 class _DetalhesTermoScreenState extends State<DetalhesTermoScreen> {
   ApiContent get item => widget.item;
 
+  @override
+  void initState() {
+    super.initState();
+    FavoritesService.instance.loadFavorites();
+  }
+
   Future<void> _toggleFavorite() async {
     try {
       await FavoritesService.instance.toggleFavorite(
@@ -310,7 +317,7 @@ class _DetalhesTermoScreenState extends State<DetalhesTermoScreen> {
   Widget build(BuildContext context) => ListenableBuilder(
         listenable: FavoritesService.instance,
         builder: (context, _) {
-          final isFavorited = FavoritesService.instance.isFavorite(widget.item.id);
+          final isFavorited = FavoritesService.instance.isFavorited(widget.item.id);
           return _Shell(
             title: 'Dicionário de Termos',
             admin: widget.admin,
@@ -840,7 +847,10 @@ class _TrainingListScreenState extends State<TrainingListScreen> {
   }
 
   Future<void> _loadTrainings() async {
-    await _trainingService.fetchTrainings();
+    await Future.wait([
+      _trainingService.fetchTrainings(),
+      FavoritesService.instance.loadFavorites(),
+    ]);
   }
 
   int _computeTrainingStatus(TrainingModel training) {
@@ -1081,15 +1091,17 @@ class _TrainingDetailScreenState extends State<TrainingDetailScreen> {
             ),
           ];
     _reloadTraining();
+    FavoritesService.instance.loadFavorites();
   }
 
   Future<void> _toggleFavorite() async {
-    if (_training == null) return;
+    final id = _training?.id ?? widget.training?.id;
+    if (id == null || id.isEmpty) return;
     try {
-      final nowFav = await FavoritesService.instance.toggleFavorite(
+      await FavoritesService.instance.toggleFavorite(
         entityType: 'TRAINING',
-        entityId: _training!.id,
-        itemData: _training!.toJson(),
+        entityId: id,
+        itemData: _training?.toJson() ?? widget.training?.toJson(),
       );
     } catch (_) {}
   }
@@ -1299,11 +1311,12 @@ class _TrainingDetailScreenState extends State<TrainingDetailScreen> {
           : ListenableBuilder(
               listenable: FavoritesService.instance,
               builder: (context, _) {
-                final isFav = _training != null &&
-                    FavoritesService.instance.isFavorite(_training!.id);
+                final id = _training?.id ?? widget.training?.id ?? '';
+                final isFav = id.isNotEmpty &&
+                    FavoritesService.instance.isFavorited(id);
                 return _BoxedHeaderAction(
                   icon: isFav ? Icons.favorite : Icons.favorite_border,
-                  color: isFav ? const Color(0xFFEF4444) : _blue,
+                  color: isFav ? const Color(0xFFEF4444) : const Color(0xFF132B5C),
                   onTap: _toggleFavorite,
                 );
               },

@@ -80,6 +80,7 @@ class _LoginPageState extends State<LoginPage> {
     setState(() => _loading = true);
     try {
       await ApiClient.instance.login(_email.text.trim(), _password.text);
+      FavoritesService.instance.loadFavorites();
       if (!mounted) return;
       Navigator.pushReplacement(
           context,
@@ -671,53 +672,33 @@ BoxDecoration card() => BoxDecoration(
     border: Border.all(color: _line),
     borderRadius: BorderRadius.circular(11));
 
-class _HomeTrainingFavoriteIcon extends StatefulWidget {
+typedef _HomeTrainingFavoriteIcon = HomeTrainingFavoriteIcon;
+
+class HomeTrainingFavoriteIcon extends StatelessWidget {
   final String trainingId;
-  const _HomeTrainingFavoriteIcon({required this.trainingId});
-
-  @override
-  State<_HomeTrainingFavoriteIcon> createState() => _HomeTrainingFavoriteIconState();
-}
-
-class _HomeTrainingFavoriteIconState extends State<_HomeTrainingFavoriteIcon> {
-  bool _isFav = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _check();
-  }
-
-  Future<void> _check() async {
-    try {
-      final favs = await ApiClient.instance.getFavorites();
-      if (!mounted) return;
-      final list = favs['trainings'] as List? ?? [];
-      if (list.any((t) => t is Map && t['id'] == widget.trainingId)) {
-        setState(() => _isFav = true);
-      }
-    } catch (_) {}
-  }
-
-  Future<void> _toggle() async {
-    try {
-      await ApiClient.instance.toggleFavorite(entityType: 'TRAINING', entityId: widget.trainingId);
-      if (mounted) setState(() => _isFav = !_isFav);
-    } catch (_) {}
-  }
+  const HomeTrainingFavoriteIcon({super.key, required this.trainingId});
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 6),
-      child: InkWell(
-        onTap: _toggle,
-        child: Icon(
-          _isFav ? Icons.favorite : Icons.favorite_border,
-          color: _isFav ? const Color(0xFFEF4444) : _blue,
-          size: 16,
-        ),
-      ),
+    return ListenableBuilder(
+      listenable: FavoritesService.instance,
+      builder: (context, _) {
+        final isFav = FavoritesService.instance.isFavorited(trainingId);
+        return Padding(
+          padding: const EdgeInsets.only(right: 6),
+          child: InkWell(
+            onTap: () => FavoritesService.instance.toggleFavorite(
+              entityType: 'TRAINING',
+              entityId: trainingId,
+            ),
+            child: Icon(
+              isFav ? Icons.favorite : Icons.favorite_border,
+              color: isFav ? const Color(0xFFEF4444) : _blue,
+              size: 16,
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -734,6 +715,7 @@ class _UserTrainingSectionState extends State<UserTrainingSection> {
   void initState() {
     super.initState();
     TrainingService.instance.fetchTrainings();
+    FavoritesService.instance.loadFavorites();
   }
 
   @override
