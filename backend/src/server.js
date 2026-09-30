@@ -83,6 +83,14 @@ class Store {
             documentUrl: null,
             documentSize: null,
             date: '02/08/2026 - 09:40'
+          },
+          newContent: {
+            title: 'Material irregular na matriz',
+            text: 'Quando identificado material irregular na matriz, realizar a inspeção da peça e verificar se a ocorrência compromete o padrão de qualidade estabelecido. Caso seja constatada irregularidade, separar a peça e encaminhá-la para avaliação.',
+            documentName: 'Ficha Técnica.pdf',
+            documentUrl: '/uploads/sample_spec.pdf',
+            documentSize: 'PDF - 1,2 MB',
+            date: '02/08/2026 - 09:43'
           }
         },
         {
@@ -100,6 +108,14 @@ class Store {
             documentUrl: '/uploads/sample_spec.pdf',
             documentSize: 'PDF - 1,2 MB',
             date: '05/08/2026 - 09:35'
+          },
+          newContent: {
+            title: 'Material irregular na matriz',
+            text: 'Quando identificado material irregular na matriz, a peça deve ser imediatamente segregada e registrada como não conforme. A ocorrência deve ser avaliada conforme o padrão de qualidade vigente.',
+            documentName: null,
+            documentUrl: null,
+            documentSize: null,
+            date: '05/08/2026 - 09:43'
           }
         }
       ]
@@ -898,11 +914,21 @@ async function adminUserRoutes(req, res, url, parts) {
       const completedCount = (p?.completedModuleIds || []).length;
       let pct = p ? (p.progressPercentage || Math.round((completedCount / totalModules) * 100)) : 0;
       let statusLabel = 'Não iniciado';
+      const passing = Number(t.passingGrade || 70);
+      const score = p?.scorePercentage ?? p?.score ?? null;
+      const attempts = p?.attempts ?? (score != null ? 1 : 0);
+
+      let assessmentStatus = null;
+      if (score != null) {
+        assessmentStatus = score >= passing ? 'Aprovado' : 'Reprovado';
+      } else if (pct >= 100 || completedCount >= totalModules) {
+        assessmentStatus = 'Pendente';
+      }
 
       if (p) {
         if (p.status === 'DESISTENCIA') {
           statusLabel = 'Desistência';
-        } else if (p.status === 'CONCLUIDO' || pct >= 100) {
+        } else if (p.status === 'CONCLUIDO' || (pct >= 100 && score != null && score >= passing)) {
           statusLabel = 'Concluído';
           pct = 100;
         } else if (pct > 0 || p.status === 'EM_CURSO' || p.status === 'IN_PROGRESS') {
@@ -915,11 +941,32 @@ async function adminUserRoutes(req, res, url, parts) {
         title: t.title,
         progressPercentage: pct,
         status: statusLabel,
-        score: p?.scorePercentage ?? p?.score ?? null,
+        score: score,
         completedModules: completedCount,
         totalModules: totalModules,
+        assessmentStatus: assessmentStatus,
+        attempts: attempts,
+        passingGrade: passing,
+        correctQuestions: p?.correctQuestions ?? (score != null ? Math.round((score / 100) * 10) : 0),
+        totalQuestions: p?.totalQuestions ?? (score != null ? 10 : 0),
       };
     });
+
+    const completedCount = enrolledList.filter((c) => c.status === 'Concluído').length;
+    const inProgressCount = enrolledList.filter((c) => c.status === 'Em andamento').length;
+    const droppedCount = enrolledList.filter((c) => c.status === 'Desistência').length;
+    const notStartedCount = enrolledList.filter((c) => c.status === 'Não iniciado').length;
+
+    const attemptedCourses = enrolledList.filter((c) => c.score != null);
+    const sumCorrect = attemptedCourses.reduce((sum, c) => sum + (c.correctQuestions || 0), 0);
+    const sumTotal = attemptedCourses.reduce((sum, c) => sum + (c.totalQuestions || 0), 0);
+    const accuracyRate = sumTotal > 0 ? Math.round((sumCorrect / sumTotal) * 1000) / 10 : 0.0;
+
+    const passedCourses = enrolledList.filter((c) => c.score != null && c.score >= c.passingGrade);
+    const sumAttemptsToPass = passedCourses.reduce((sum, c) => sum + (c.attempts || 1), 0);
+    const averageAttemptsToPass = passedCourses.length > 0
+      ? Math.round((sumAttemptsToPass / passedCourses.length) * 10) / 10
+      : (attemptedCourses.length > 0 ? 1.0 : 0.0);
 
     return json(res, 200, {
       id: userObj.id,
@@ -933,6 +980,14 @@ async function adminUserRoutes(req, res, url, parts) {
       createdAt: userObj.createdAt,
       trainings: enrolledList,
       enrolledTrainings: enrolledList,
+      assessmentAnalytics: {
+        accuracyRate: accuracyRate,
+        averageAttemptsToPass: averageAttemptsToPass,
+        completedCount: completedCount,
+        inProgressCount: inProgressCount,
+        droppedCount: droppedCount,
+        notStartedCount: notStartedCount,
+      }
     });
   }
 
@@ -1102,6 +1157,15 @@ async function contentRoutes(req, res, url, parts) {
     }
     const changeDescription = input.changeNote || (changes.length ? `Alterações:\n- ${changes.join('\n- ')}` : 'Edição geral');
 
+    const newSnapshot = {
+      title: input.title !== undefined ? input.title : item.title,
+      text: input.text !== undefined ? input.text : item.text,
+      documentName: documentRemoved ? null : (input.documentName !== undefined ? input.documentName : item.documentName),
+      documentUrl: documentRemoved ? null : (input.documentUrl !== undefined ? input.documentUrl : item.documentUrl),
+      documentSize: documentRemoved ? null : (input.documentSize !== undefined ? input.documentSize : item.documentSize),
+      date: dateFormatted,
+    };
+
     item.history.push({
       id: randomUUID(),
       authorName: current.name || 'Maria',
@@ -1111,6 +1175,7 @@ async function contentRoutes(req, res, url, parts) {
       title: `${current.name || 'Maria'} editou o conteúdo`,
       description: changeDescription,
       previousContent: previousSnapshot,
+      newContent: newSnapshot,
     });
 
     if (documentRemoved) {
@@ -1123,6 +1188,12 @@ async function contentRoutes(req, res, url, parts) {
         title: `${current.name || 'Maria'} removeu o documento`,
         description: 'Documento anexado foi removido.',
         previousContent: previousSnapshot,
+        newContent: {
+          ...newSnapshot,
+          documentName: null,
+          documentUrl: null,
+          documentSize: null,
+        },
       });
     }
 

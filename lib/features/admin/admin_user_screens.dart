@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../services/api_client.dart';
 import '../../widgets/pext_asset_icon.dart';
+import '../../shared/widgets/dashboard/dashboard_widgets.dart';
+import '../../models/dashboard_analytics_models.dart';
 
 const _blue = Color(0xFF053488);
 const _canvas = Color(0xFFF6F8FB);
@@ -645,6 +647,82 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
     final isAdmin = role == 'ADMIN';
     final avatarUrl = user['avatarUrl']?.toString();
     final enrolledTrainings = (user['enrolledTrainings'] ?? user['trainings']) as List? ?? [];
+    final analytics = (user['assessmentAnalytics'] is Map)
+        ? Map<String, dynamic>.from(user['assessmentAnalytics'] as Map)
+        : <String, dynamic>{};
+
+    int completedCount = 0;
+    int inProgressCount = 0;
+    int droppedCount = 0;
+    int notStartedCount = 0;
+    int totalQuestionsSum = 0;
+    int correctQuestionsSum = 0;
+    int sumAttemptsToPass = 0;
+    int passedCoursesCount = 0;
+
+    for (final t in enrolledTrainings) {
+      final map = Map<String, dynamic>.from(t as Map);
+      final status = map['status']?.toString().toUpperCase() ?? '';
+      final score = (map['score'] as num?)?.toDouble();
+      final passingGrade = (map['passingGrade'] as num?)?.toDouble() ?? 70.0;
+      final rawAttempts = (map['attempts'] as num?)?.toInt() ?? (score != null ? 1 : 0);
+
+      if (status.contains('CONCLU') || (score != null && score >= passingGrade)) {
+        completedCount++;
+      } else if (status.contains('DESIST')) {
+        droppedCount++;
+      } else if (status.contains('CURSO') || status.contains('ANDAMENTO')) {
+        inProgressCount++;
+      } else {
+        notStartedCount++;
+      }
+
+      if (score != null) {
+        final totalQ = (map['totalQuestions'] as num?)?.toInt() ?? 10;
+        final correctQ = (map['correctQuestions'] as num?)?.toInt() ?? ((score / 100) * totalQ).round();
+        totalQuestionsSum += totalQ;
+        correctQuestionsSum += correctQ;
+
+        if (score >= passingGrade) {
+          passedCoursesCount++;
+          sumAttemptsToPass += (rawAttempts > 0 ? rawAttempts : 1);
+        }
+      }
+    }
+
+    final totalStatusCount = completedCount + inProgressCount + droppedCount + notStartedCount;
+    final double completedPct = totalStatusCount > 0 ? (completedCount / totalStatusCount) * 100 : 0.0;
+    final double inProgressPct = totalStatusCount > 0 ? (inProgressCount / totalStatusCount) * 100 : 0.0;
+    final double droppedPct = totalStatusCount > 0 ? (droppedCount / totalStatusCount) * 100 : 0.0;
+
+    final double accuracyRate = totalQuestionsSum > 0
+        ? (correctQuestionsSum / totalQuestionsSum) * 100
+        : ((analytics['accuracyRate'] as num?)?.toDouble() ?? 0.0);
+
+    final double avgAttemptsToPass = passedCoursesCount > 0
+        ? sumAttemptsToPass / passedCoursesCount
+        : ((analytics['averageAttemptsToPass'] as num?)?.toDouble() ?? (enrolledTrainings.isNotEmpty ? 1.0 : 0.0));
+
+    final slices = <DonutSliceData>[
+      if (completedCount > 0)
+        DonutSliceData(
+          label: 'Concluídos / Aprovados',
+          percentage: completedPct,
+          color: const Color(0xFF16A34A),
+        ),
+      if (inProgressCount > 0)
+        DonutSliceData(
+          label: 'Em andamento',
+          percentage: inProgressPct,
+          color: const Color(0xFFD97706),
+        ),
+      if (droppedCount > 0)
+        DonutSliceData(
+          label: 'Desistências',
+          percentage: droppedPct,
+          color: const Color(0xFFDC2626),
+        ),
+    ];
 
     return Scaffold(
       backgroundColor: _canvas,
@@ -714,7 +792,6 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
                                     color: isAdmin
                                         ? const Color(0xFFFEE2E2)
                                         : const Color(0xFFEFF6FF),
-                                    borderRadius: BorderRadius.circular(6),
                                   ),
                                   child: Text(
                                     isAdmin ? 'ADMINISTRADOR' : 'OPERADOR',
@@ -759,7 +836,65 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 14),
+
+                if (enrolledTrainings.isNotEmpty) ...[
+                  // Performance & Assessment Analytics Section
+                  const Row(
+                    children: [
+                      Icon(Icons.analytics_outlined, color: _blue, size: 20),
+                      SizedBox(width: 8),
+                      Text(
+                        'Desempenho e Avaliações',
+                        style: TextStyle(
+                          color: _blue,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+
+                  // KPI Cards
+                  Row(
+                    children: [
+                      Expanded(
+                        child: KpiCard(
+                          title: 'Taxa de Acerto Geral',
+                          value: '${accuracyRate.toStringAsFixed(1)}%',
+                          subtitle: 'Precisão média nos testes',
+                          compact: true,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: KpiCard(
+                          title: 'Média de Tentativas',
+                          value: avgAttemptsToPass.toStringAsFixed(1),
+                          subtitle: 'Para aprovação por curso',
+                          compact: true,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+
+                  // Course Enrollment Status Chart (Red: Desistências, Orange: Em andamento, Green: Concluídos / Aprovados)
+                  DonutChartCard(
+                    title: 'Status dos Treinamentos',
+                    slices: slices.isEmpty
+                        ? const [
+                            DonutSliceData(
+                              label: 'Sem cursos iniciados',
+                              percentage: 100,
+                              color: Color(0xFFCBD5E1),
+                            )
+                          ]
+                        : slices,
+                  ),
+                  const SizedBox(height: 16),
+                ],
 
                 // Enrolled Courses List
                 if (enrolledTrainings.isEmpty)
@@ -785,9 +920,21 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
                         : rawPct.clamp(0.0, 1.0);
                     final int displayPct = (normalizedPct * 100).round();
                     final score = map['score'] as num?;
+                    final passingGrade = (map['passingGrade'] as num?)?.toDouble() ?? 70.0;
                     final completedModules =
                         map['completedModules'] ?? 0;
                     final totalModules = map['totalModules'] ?? 0;
+                    final attempts = (map['attempts'] as num?)?.toInt() ?? (score != null ? 1 : 0);
+
+                    // Assessment Status calculation
+                    String? assessmentStatus = map['assessmentStatus']?.toString();
+                    if (assessmentStatus == null || assessmentStatus.isEmpty) {
+                      if (score != null) {
+                        assessmentStatus = score >= passingGrade ? 'Aprovado' : 'Reprovado';
+                      } else if (normalizedPct >= 1.0 || (totalModules > 0 && completedModules >= totalModules)) {
+                        assessmentStatus = 'Pendente';
+                      }
+                    }
 
                     final (statusLabel, statusColor, statusBg) = switch (status.toUpperCase()) {
                       'CONCLUIDO' || 'CONCLUÍDO' => (
@@ -810,6 +957,25 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
                           const Color(0xFF6B7280),
                           const Color(0xFFF3F4F6)
                         ),
+                    };
+
+                    final assessmentBadge = switch (assessmentStatus?.toUpperCase()) {
+                      'APROVADO' => (
+                          'Aprovado',
+                          const Color(0xFF16A34A),
+                          const Color(0xFFDCFCE7)
+                        ),
+                      'REPROVADO' => (
+                          'Reprovado',
+                          const Color(0xFFDC2626),
+                          const Color(0xFFFEE2E2)
+                        ),
+                      'PENDENTE' => (
+                          'Pendente',
+                          const Color(0xFFD97706),
+                          const Color(0xFFFEF3C7)
+                        ),
+                      _ => null,
                     };
 
                     return Container(
@@ -847,6 +1013,25 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
                                   ),
                                 ),
                               ),
+                              if (assessmentBadge != null) ...[
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: assessmentBadge.$3,
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    assessmentBadge.$1,
+                                    style: TextStyle(
+                                      color: assessmentBadge.$2,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
                           const SizedBox(height: 8),
@@ -887,17 +1072,31 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
                                   color: Color(0xFF6B7280),
                                 ),
                               ),
-                              if (score != null)
-                                Text(
-                                  'Nota: $score%',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                    color: score >= 70
-                                        ? const Color(0xFF16A34A)
-                                        : const Color(0xFFDC2626),
+                              Row(
+                                children: [
+                                  Text(
+                                    'Tentativas: $attempts',
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF4B5563),
+                                    ),
                                   ),
-                                ),
+                                  if (score != null) ...[
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'Nota: $score%',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                        color: score >= passingGrade
+                                            ? const Color(0xFF16A34A)
+                                            : const Color(0xFFDC2626),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
                             ],
                           ),
                         ],

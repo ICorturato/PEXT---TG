@@ -119,11 +119,24 @@ class FileDownloadService {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'Download concluído: $filename salvo com sucesso!',
+                  'Salvo na pasta Downloads: $filename',
                   style: const TextStyle(fontSize: 13),
                 ),
               ),
             ],
+          ),
+          action: SnackBarAction(
+            label: 'ABRIR',
+            textColor: Colors.white,
+            onPressed: () {
+              try {
+                if (Platform.isWindows) {
+                  Process.run('explorer.exe', ['/select,', savedPath]);
+                } else if (Platform.isMacOS || Platform.isLinux) {
+                  Process.run('open', [savedPath]);
+                }
+              } catch (_) {}
+            },
           ),
           backgroundColor: const Color(0xFF22C55E),
           duration: const Duration(seconds: 4),

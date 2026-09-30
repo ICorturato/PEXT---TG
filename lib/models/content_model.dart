@@ -7,6 +7,7 @@ class ContentAuditEntry {
   final String title;
   final String description;
   final Map<String, dynamic>? previousContent;
+  final Map<String, dynamic>? newContent;
 
   const ContentAuditEntry({
     required this.id,
@@ -17,7 +18,11 @@ class ContentAuditEntry {
     required this.title,
     required this.description,
     this.previousContent,
+    this.newContent,
   });
+
+  Map<String, dynamic>? get previousFileSnapshot => previousContent;
+  Map<String, dynamic>? get newFileSnapshot => newContent;
 
   factory ContentAuditEntry.fromJson(Map<String, dynamic> json) =>
       ContentAuditEntry(
@@ -28,7 +33,8 @@ class ContentAuditEntry {
         date: json['date']?.toString() ?? '',
         title: json['title']?.toString() ?? '',
         description: json['description']?.toString() ?? '',
-        previousContent: json['previousContent'] as Map<String, dynamic>?,
+        previousContent: (json['previousContent'] ?? json['previousFileSnapshot']) as Map<String, dynamic>?,
+        newContent: (json['newContent'] ?? json['newFileSnapshot']) as Map<String, dynamic>?,
       );
 
   Map<String, dynamic> toJson() => {
@@ -40,6 +46,7 @@ class ContentAuditEntry {
         'title': title,
         'description': description,
         if (previousContent != null) 'previousContent': previousContent,
+        if (newContent != null) 'newContent': newContent,
       };
 }
 

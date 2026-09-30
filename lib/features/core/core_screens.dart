@@ -237,20 +237,10 @@ class _TermFavoriteIconButton extends StatelessWidget {
             color: isFavorited ? const Color(0xFFEF4444) : const Color(0xFF9CA3AF),
           ),
           onPressed: () async {
-            final nowFav = await FavoritesService.instance.toggleFavorite(
+            await FavoritesService.instance.toggleFavorite(
               entityType: 'TERM',
               entityId: termId,
             );
-            if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(nowFav
-                      ? 'Termo adicionado aos favoritos!'
-                      : 'Removido dos favoritos.'),
-                  duration: const Duration(seconds: 2),
-                ),
-              );
-            }
           },
           tooltip: 'Favoritar',
           padding: EdgeInsets.zero,
@@ -289,31 +279,12 @@ class _DetalhesTermoScreenState extends State<DetalhesTermoScreen> {
 
   Future<void> _toggleFavorite() async {
     try {
-      final nowFav = await FavoritesService.instance.toggleFavorite(
+      await FavoritesService.instance.toggleFavorite(
         entityType: 'TERM',
         entityId: widget.item.id,
         itemData: widget.item.data,
       );
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(nowFav
-                ? 'Termo adicionado aos favoritos!'
-                : 'Termo removido dos favoritos.'),
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro ao atualizar favorito: $e'),
-            backgroundColor: const Color(0xFFEF4444),
-          ),
-        );
-      }
-    }
+    } catch (_) {}
   }
 
   @override
@@ -6040,70 +6011,42 @@ class _DoubtThreadScreenState extends State<DoubtThreadScreen> {
                       const SizedBox(height: 6),
                       if (_doubt.verificationData != null &&
                           _doubt.verificationData!.isNotEmpty) ...[
+                        VerificationParametersCard(doubt: _doubt),
                         Container(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          padding: const EdgeInsets.all(8),
+                          margin: const EdgeInsets.only(bottom: 10),
+                          padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
                             color: const Color(0xFFF1F5F9),
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: const Color(0xFFCBD5E1)),
+                            border: Border.all(color: const Color(0xFFE2E8F0)),
                           ),
-                          child: Column(
+                          child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Row(
-                                children: [
-                                  Icon(Icons.rule_outlined,
-                                      size: 14, color: _blue),
-                                  SizedBox(width: 4),
-                                  Text(
-                                    'Parâmetros de Verificação',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 11,
-                                      color: _blue,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                              ...(_doubt.verificationData!.entries.map((entry) {
-                                final val = entry.value;
-                                if (val is Map) {
-                                  final pName =
-                                      val['parameterName'] ?? entry.key;
-                                  final target = val['target'] ?? '-';
-                                  final measured =
-                                      val['measuredValue'] ?? '-';
-                                  final dev = val['deviation'] ?? '-';
-                                  return Padding(
-                                    padding:
-                                        const EdgeInsets.symmetric(vertical: 1),
-                                    child: Text(
-                                      '$pName: Alvo=$target | Lido=$measured | Desvio=$dev',
-                                      style: const TextStyle(
-                                        fontSize: 10,
-                                        color: Color(0xFF334155),
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  );
-                                }
-                                return Text(
-                                  '${entry.key}: ${entry.value}',
+                              const Icon(Icons.info_outline, size: 16, color: Color(0xFF64748B)),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  _doubt.question.startsWith('Problema reportado:')
+                                      ? _doubt.question
+                                      : 'Problema reportado: ${_doubt.question}',
                                   style: const TextStyle(
-                                      fontSize: 10, color: Color(0xFF334155)),
-                                );
-                              })),
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF334155),
+                                  ),
+                                ),
+                              ),
                             ],
                           ),
                         ),
+                      ] else ...[
+                        Text(
+                          _doubt.question,
+                          style: const TextStyle(
+                              fontSize: 15, fontWeight: FontWeight.bold),
+                        ),
                       ],
-                      Text(
-                        _doubt.question,
-                        style: const TextStyle(
-                            fontSize: 15, fontWeight: FontWeight.bold),
-                      ),
                       const SizedBox(height: 6),
                       _StatusBadge(
                         label:
@@ -6248,6 +6191,148 @@ class _DoubtThreadScreenState extends State<DoubtThreadScreen> {
           ),
         ]),
       );
+}
+
+class VerificationParametersCard extends StatelessWidget {
+  final DoubtModel? doubt;
+  final List<VerificationParameterItem>? parameters;
+  final String? packagingName;
+
+  const VerificationParametersCard({
+    super.key,
+    this.doubt,
+    this.parameters,
+    this.packagingName,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final list = parameters ?? doubt?.parsedVerificationParameters ?? const [];
+    final packaging = packagingName ?? doubt?.targetPackagingName ?? 'Padrão';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFCBD5E1)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.rule_outlined, size: 16, color: _blue),
+              const SizedBox(width: 6),
+              const Expanded(
+                child: Text(
+                  'Parâmetros de Verificação',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                    color: _blue,
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE2E8F0),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  'Embalagem: $packaging',
+                  style: const TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF334155),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (list.isEmpty && doubt?.verificationData?['parameters'] is List) ...[
+            ...((doubt!.verificationData!['parameters'] as List).map((p) {
+              final map = Map<String, dynamic>.from(p as Map);
+              return _buildRow(VerificationParameterItem.fromJson(map));
+            })),
+          ] else ...[
+            for (final p in list) _buildRow(p),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRow(VerificationParameterItem item) {
+    final inRange = item.isWithinRange;
+    final badgeBg = inRange ? const Color(0xFFDCFCE7) : const Color(0xFFFEE2E2);
+    final badgeText = inRange ? const Color(0xFF16A34A) : const Color(0xFFDC2626);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  item.parameterName,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1E293B),
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: badgeBg,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  item.deviation.startsWith('Desvio') ? item.deviation : 'Desvio: ${item.deviation}',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: badgeText,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              Text(
+                'Alvo: ${item.target}',
+                style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Lido: ${item.measuredValue}',
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF334155),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _ConteudoTabView extends StatefulWidget {
@@ -7066,12 +7151,13 @@ class DetalhesConteudoScreen extends StatelessWidget {
               date: entry.date,
               title: entry.title,
               text: entry.description,
-              onVersion: entry.previousContent != null
+              onVersion: (entry.previousContent != null || entry.newContent != null)
                   ? () => Navigator.of(context).push(
                         MaterialPageRoute(
                           builder: (_) => ComparacaoVersoesConteudoScreen(
                             currentContent: item,
                             previousSnapshot: entry.previousContent,
+                            newSnapshot: entry.newContent,
                             author: entry.authorName,
                             date: entry.date,
                           ),
@@ -7197,6 +7283,7 @@ class _HistoryEvent extends StatelessWidget {
 class ComparacaoVersoesConteudoScreen extends StatelessWidget {
   final ContentModel? currentContent;
   final Map<String, dynamic>? previousSnapshot;
+  final Map<String, dynamic>? newSnapshot;
   final String? author;
   final String? date;
 
@@ -7204,6 +7291,7 @@ class ComparacaoVersoesConteudoScreen extends StatelessWidget {
     super.key,
     this.currentContent,
     this.previousSnapshot,
+    this.newSnapshot,
     this.author,
     this.date,
   });
@@ -7213,14 +7301,27 @@ class ComparacaoVersoesConteudoScreen extends StatelessWidget {
     final title = currentContent?.title ?? 'Material irregular na matriz';
     final changeDate = date ?? '05/08/2026 - 09:35';
     final changeAuthor = author ?? 'Maria';
+
+    // Point-to-point revision snapshot comparison:
+    // Read strictly from snapshot metadata without assuming current live document
     final prevText = previousSnapshot?['text']?.toString() ??
         'Quando identificado material irregular na matriz, realizar a inspeção da peça e verificar se a ocorrência compromete o padrão de qualidade estabelecido. Caso seja constatada irregularidade, separar a peça e encaminhá-la para avaliação.';
-    final currentText = currentContent?.text ??
+    final currentText = newSnapshot?['text']?.toString() ??
+        currentContent?.text ??
         'Quando identificado material irregular na matriz, a peça deve ser imediatamente segregada e registrada como não conforme. A ocorrência deve ser avaliada conforme o padrão de qualidade vigente.';
+
     final prevDoc = previousSnapshot?['documentName']?.toString();
     final hasPrevDoc = prevDoc != null && prevDoc.trim().isNotEmpty;
-    final curDoc = currentContent?.documentName;
+
+    final curDoc = newSnapshot != null
+        ? newSnapshot!['documentName']?.toString()
+        : currentContent?.documentName;
     final hasCurDoc = curDoc != null && curDoc.trim().isNotEmpty;
+
+    final curDocUrl = newSnapshot != null
+        ? newSnapshot!['documentUrl']?.toString()
+        : currentContent?.documentUrl;
+
     final bool isUnchanged = (hasPrevDoc && hasCurDoc && prevDoc == curDoc) || (!hasPrevDoc && !hasCurDoc);
 
     return _Shell(
@@ -7302,7 +7403,7 @@ class ComparacaoVersoesConteudoScreen extends StatelessWidget {
             const SizedBox(width: 8),
             Expanded(
               child: _AttachmentVersion(
-                label: 'Versão atual',
+                label: 'Versão seguinte',
                 documentName: hasCurDoc ? curDoc! : 'Nenhum documento anexado',
                 color: isUnchanged
                     ? const Color(0xFFF0F4FA)
@@ -7313,7 +7414,7 @@ class ComparacaoVersoesConteudoScreen extends StatelessWidget {
                 statusColor: isUnchanged
                     ? const Color(0xFF6B7280)
                     : (hasCurDoc ? const Color(0xFF20BF64) : const Color(0xFFF8494E)),
-                url: currentContent?.documentUrl,
+                url: curDocUrl,
               ),
             ),
           ]),

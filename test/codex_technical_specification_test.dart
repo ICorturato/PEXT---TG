@@ -98,7 +98,10 @@ void main() {
 
       // Verify parameters are visible
       expect(find.text('Parâmetros de Verificação'), findsOneWidget);
-      expect(find.textContaining('Espessura: Alvo=50 µm | Lido=65 µm | Desvio=+15 µm'), findsOneWidget);
+      expect(find.text('Espessura'), findsOneWidget);
+      expect(find.textContaining('Alvo: 50 µm'), findsOneWidget);
+      expect(find.textContaining('Lido: 65 µm'), findsOneWidget);
+      expect(find.textContaining('+15 µm'), findsOneWidget);
 
       // Verify ticket status badge
       expect(find.text('ABERTA'), findsOneWidget);

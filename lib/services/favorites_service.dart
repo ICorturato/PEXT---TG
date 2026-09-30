@@ -19,17 +19,21 @@ class FavoritesService extends ChangeNotifier {
 
   bool isFavorite(String id) => _favoritedItemIds.contains(id);
 
+  bool mockNetworkSuccessInTest = false;
+
   void setFavoritesForTest({
     required Set<String> ids,
     List<Map<String, dynamic>> terms = const [],
     List<Map<String, dynamic>> trainings = const [],
     List<Map<String, dynamic>> resins = const [],
+    bool mockNetwork = true,
   }) {
     _favoritedItemIds.clear();
     _favoritedItemIds.addAll(ids);
     _terms = List.from(terms);
     _trainings = List.from(trainings);
     _resins = List.from(resins);
+    mockNetworkSuccessInTest = mockNetwork;
     notifyListeners();
   }
 
@@ -94,6 +98,10 @@ class FavoritesService extends ChangeNotifier {
       }
     }
     notifyListeners();
+
+    if (mockNetworkSuccessInTest) {
+      return !wasFavorited;
+    }
 
     try {
       final res = await ApiClient.instance.toggleFavorite(

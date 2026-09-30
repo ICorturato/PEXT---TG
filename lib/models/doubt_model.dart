@@ -40,6 +40,73 @@ class DoubtMessage {
       };
 }
 
+class VerificationParameterItem {
+  final String parameterName;
+  final String target;
+  final String measuredValue;
+  final String deviation;
+  final bool? explicitIsWithinRange;
+
+  const VerificationParameterItem({
+    required this.parameterName,
+    required this.target,
+    required this.measuredValue,
+    required this.deviation,
+    this.explicitIsWithinRange,
+  });
+
+  bool get isWithinRange {
+    if (explicitIsWithinRange != null) return explicitIsWithinRange!;
+    try {
+      final targetParts = target.split('-');
+      if (targetParts.length >= 2) {
+        final minStr = targetParts[0].replaceAll(RegExp(r'[^0-9\.\-]'), '').trim();
+        final maxStr = targetParts[1].replaceAll(RegExp(r'[^0-9\.\-]'), '').trim();
+        final measStr = measuredValue.replaceAll(RegExp(r'[^0-9\.\-]'), '').trim();
+        final min = double.tryParse(minStr);
+        final max = double.tryParse(maxStr);
+        final meas = double.tryParse(measStr);
+        if (min != null && max != null && meas != null) {
+          return meas >= min && meas <= max;
+        }
+      }
+    } catch (_) {}
+
+    final devStr = deviation.replaceAll(RegExp(r'[^0-9\.\-]'), '').trim();
+    final devVal = double.tryParse(devStr);
+    if (devVal != null && devVal.abs() < 0.001) return true;
+    return deviation.trim() == '0' ||
+        deviation.trim() == '0.0' ||
+        deviation.trim() == '+0.0' ||
+        deviation.trim().isEmpty;
+  }
+
+  factory VerificationParameterItem.fromJson(Map<String, dynamic> json) =>
+      VerificationParameterItem(
+        parameterName: json['parameterName']?.toString() ??
+            json['name']?.toString() ??
+            '',
+        target: json['target']?.toString() ?? '-',
+        measuredValue: json['measuredValue']?.toString() ??
+            json['measured']?.toString() ??
+            '-',
+        deviation: json['deviation']?.toString() ?? '-',
+        explicitIsWithinRange: json['isWithinRange'] is bool
+            ? json['isWithinRange'] as bool
+            : (json['isWithinRange'] != null
+                ? json['isWithinRange'].toString().toLowerCase() == 'true'
+                : null),
+      );
+
+  Map<String, dynamic> toJson() => {
+        'parameterName': parameterName,
+        'target': target,
+        'measuredValue': measuredValue,
+        'deviation': deviation,
+        'isWithinRange': isWithinRange,
+      };
+}
+
 class DoubtModel {
   final String id;
   final String userId;
@@ -70,6 +137,35 @@ class DoubtModel {
   });
 
   bool get isAnswered => status == 'RESPONDIDO';
+
+  List<VerificationParameterItem> get parsedVerificationParameters {
+    if (verificationData == null) return const [];
+    final rawParams = verificationData!['parameters'];
+    if (rawParams is List) {
+      return rawParams
+          .whereType<Map>()
+          .map((p) => VerificationParameterItem.fromJson(
+              Map<String, dynamic>.from(p)))
+          .toList();
+    }
+    final result = <VerificationParameterItem>[];
+    for (final entry in verificationData!.entries) {
+      if (entry.key == 'parameters' || entry.key == 'packagingId' || entry.key == 'packaging') continue;
+      if (entry.value is Map) {
+        final val = Map<String, dynamic>.from(entry.value as Map);
+        val['parameterName'] ??= entry.key;
+        result.add(VerificationParameterItem.fromJson(val));
+      }
+    }
+    return result;
+  }
+
+  String? get targetPackagingName {
+    if (verificationData == null) return null;
+    return verificationData!['packagingId']?.toString() ??
+        verificationData!['packaging']?.toString() ??
+        verificationData!['packagingName']?.toString();
+  }
 
   factory DoubtModel.fromJson(Map<String, dynamic> json) => DoubtModel(
         id: json['id']?.toString() ?? '',
