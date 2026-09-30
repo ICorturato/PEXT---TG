@@ -417,6 +417,7 @@ async function route(req, res) {
   if (parts[0] === 'problems') return problemRoutes(req, res, url, parts);
   if (parts[0] === 'contents') return contentRoutes(req, res, url, parts);
   if (parts[0] === 'doubts') return doubtRoutes(req, res, url, parts);
+  if (parts[0] === 'support' && parts[1] === 'tickets') return doubtRoutes(req, res, url, ['doubts', ...parts.slice(2)]);
   if (parts[0] === 'favorites') return favoriteRoutes(req, res, url);
   if (parts[0] === 'dashboards') return dashboardRoutes(req, res, url, parts);
   if (parts[0] === 'admin' && parts[1] === 'users') return adminUserRoutes(req, res, url, parts);
@@ -930,6 +931,7 @@ async function adminUserRoutes(req, res, url, parts) {
       avatarUrl: userObj.avatarUrl || 'images/profile_igor.png',
       createdAt: userObj.createdAt,
       trainings: enrolledList,
+      enrolledTrainings: enrolledList,
     });
   }
 
@@ -1188,12 +1190,13 @@ async function doubtRoutes(req, res, url, parts) {
   if (req.method === 'POST' && !id) {
     const current = auth(req);
     const input = await body(req);
-    const questionText = String(input.question || input.text || input.description || '').trim();
+    const questionText = String(input.question || input.text || input.description || input.issueDescription || '').trim();
     if (!questionText) throw new ApiError(422, 'Pergunta é obrigatória.');
 
     const machineId = input.machineId || input.machine || 'Extrusora Principal';
     const processContext = input.processContext || input.context || 'Linha de Coextrusão';
-    const description = input.description || questionText;
+    const description = input.description || input.issueDescription || questionText;
+    const verificationData = input.verificationData || null;
 
     const now = new Date().toISOString();
     const item = {
@@ -1207,6 +1210,7 @@ async function doubtRoutes(req, res, url, parts) {
       question: questionText,
       status: 'NAO_RESPONDIDO',
       ticketStatus: 'OPEN',
+      verificationData,
       createdAt: now,
       messages: [
         {
@@ -1248,6 +1252,7 @@ async function doubtRoutes(req, res, url, parts) {
 
     if (current.role === 'ADMIN') {
       item.status = 'RESPONDIDO';
+      item.ticketStatus = 'RESPONDIDA';
     }
 
     await store.save();

@@ -508,14 +508,17 @@ class ApiClient {
     required String description,
     String? machineId,
     String? processContext,
+    Map<String, dynamic>? verificationData,
   }) async {
     return postRaw('/doubts', {
       'description': description,
+      'issueDescription': description,
       'question': description,
       'machineId': machineId ?? 'Extrusora Principal',
       'processContext': processContext ?? 'Linha de Coextrusão',
       'status': 'OPEN',
       'timestamp': DateTime.now().toIso8601String(),
+      if (verificationData != null) 'verificationData': verificationData,
     });
   }
 

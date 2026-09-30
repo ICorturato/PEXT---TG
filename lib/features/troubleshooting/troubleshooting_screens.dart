@@ -254,6 +254,7 @@ class _TroubleshootingListScreenState extends State<TroubleshootingListScreen> {
                               MaterialPageRoute(
                                 builder: (_) => DoubtThreadScreen(
                                   doubt: DoubtModel.fromJson(payload),
+                                  admin: false,
                                 ),
                               ),
                             );
@@ -586,42 +587,104 @@ String _problemGuide(String problem) {
 }
 
 void _showSupervisorModal(BuildContext context,
-        {required String problem,
-        required String packaging,
-        required Map<String, double> measurements}) =>
-    showDialog<void>(
-        context: context,
-        builder: (dialogContext) => AlertDialog(
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16)),
-                titlePadding: const EdgeInsets.fromLTRB(22, 18, 8, 0),
-                title: Row(children: [
-                  const Expanded(
-                      child: Text('Não conseguiu resolver?',
-                          style: TextStyle(
-                              color: _blue,
-                              fontSize: 19,
-                              fontWeight: FontWeight.bold))),
-                  IconButton(
-                      tooltip: 'Fechar',
-                      onPressed: () => Navigator.pop(dialogContext),
-                      icon: const Icon(Icons.close))
-                ]),
-                content: const Text(
-                    'O supervisor receberá o problema, a embalagem e as medições registradas.'),
-                actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-                actions: [
-                  SizedBox(
-                      width: double.infinity,
-                      child: FilledButton(
-                          onPressed: () {
-                            Navigator.pop(dialogContext);
-                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                                content: Text(
-                                    'Solicitação enviada: $problem em $packaging (${measurements.length} medições).')));
-                          },
-                          child: const Text('SOLICITAR SUPERVISOR')))
-                ]));
+    {required String problem,
+    required String packaging,
+    required Map<String, double> measurements}) {
+  final specification = PackagingCatalog.byName(packaging);
+  final parametersList = <Map<String, String>>[];
+  for (final param in specification.enabledVerifications) {
+    final measured = measurements[param.name] ?? 0;
+    final target = '${param.min} - ${param.max} ${param.unit}';
+    final mid = (param.min + param.max) / 2;
+    final diff = measured - mid;
+    final deviation = diff >= 0
+        ? '+${diff.toStringAsFixed(1)} ${param.unit}'
+        : '${diff.toStringAsFixed(1)} ${param.unit}';
+    parametersList.add({
+      'parameterName': param.name,
+      'target': target,
+      'measuredValue': '$measured ${param.unit}',
+      'deviation': deviation,
+    });
+  }
+
+  showDialog<void>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      titlePadding: const EdgeInsets.fromLTRB(22, 18, 8, 0),
+      title: Row(children: [
+        const Expanded(
+          child: Text(
+            'Não conseguiu resolver?',
+            style: TextStyle(
+              color: _blue,
+              fontSize: 19,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        IconButton(
+          tooltip: 'Fechar',
+          onPressed: () => Navigator.pop(dialogContext),
+          icon: const Icon(Icons.close),
+        ),
+      ]),
+      content: const Text(
+        'O supervisor receberá o problema, a embalagem e as medições registradas para análise.',
+      ),
+      actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+      actions: [
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton(
+            onPressed: () async {
+              Navigator.pop(dialogContext);
+              try {
+                final payload = await ApiClient.instance.createSupportTicket(
+                  description: 'Problema reportado: $problem na embalagem $packaging',
+                  machineId: 'Linha de Coextrusão',
+                  processContext: 'Diagnóstico de Embalagem',
+                  verificationData: {
+                    'packagingId': packaging,
+                    'parameters': parametersList,
+                  },
+                );
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Solicitação enviada ao supervisor: $problem ($packaging).'),
+                      backgroundColor: const Color(0xFF22C55E),
+                    ),
+                  );
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => DoubtThreadScreen(
+                        doubt: DoubtModel.fromJson(payload),
+                        admin: false,
+                      ),
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Erro ao enviar chamado ao supervisor: $e'),
+                      backgroundColor: const Color(0xFFEF4444),
+                    ),
+                  );
+                }
+              }
+            },
+            child: const Text('SOLICITAR SUPERVISOR'),
+          ),
+        ),
+      ],
+    ),
+  );
+}
 
 class _ProblemSearch extends StatelessWidget {
   final String hint;

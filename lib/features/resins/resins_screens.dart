@@ -6,6 +6,8 @@ import 'package:image_picker/image_picker.dart';
 import '../../app_routes.dart';
 import '../../models/resin_model.dart';
 import '../../services/api_client.dart';
+import '../../services/favorites_service.dart';
+import '../../services/file_download_service.dart';
 import '../../services/resin_service.dart';
 import '../../widgets/pext_asset_icon.dart';
 
@@ -614,11 +616,23 @@ class _ResinDetailScreenState extends State<ResinDetailScreen> {
 
   Future<void> _toggleFavorite() async {
     if (_resin == null) return;
-    final isFav = await ResinService.instance.toggleFavorite(_resin!.id);
+    final isFav = await FavoritesService.instance.toggleFavorite(
+      entityType: 'RESIN',
+      entityId: _resin!.id,
+      itemData: _resin!.toJson(),
+    );
     if (mounted) {
       setState(() {
         _resin = _resin!.copyWith(isFavorite: isFav);
       });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(isFav
+              ? 'Resina adicionada aos favoritos!'
+              : 'Removida dos favoritos.'),
+          duration: const Duration(seconds: 2),
+        ),
+      );
     }
   }
 
@@ -708,14 +722,19 @@ class _ResinDetailScreenState extends State<ResinDetailScreen> {
             ),
           ),
           actions: [
-            // Favorite button REMOVED completely on admin screens!
             if (!widget.admin && _resin != null)
-              IconButton(
-                onPressed: _toggleFavorite,
-                icon: Icon(
-                  _resin!.isFavorite ? Icons.favorite : Icons.favorite_border,
-                  color: _resin!.isFavorite ? Colors.red : _navy,
-                ),
+              ListenableBuilder(
+                listenable: FavoritesService.instance,
+                builder: (context, _) {
+                  final isFav = FavoritesService.instance.isFavorite(_resin!.id);
+                  return IconButton(
+                    onPressed: _toggleFavorite,
+                    icon: Icon(
+                      isFav ? Icons.favorite : Icons.favorite_border,
+                      color: isFav ? Colors.red : _navy,
+                    ),
+                  );
+                },
               ),
             const SizedBox(width: 8),
           ],
@@ -1630,8 +1649,10 @@ class _ResinDetailScreenState extends State<ResinDetailScreen> {
                     icon: const PextAssetIcon(PextAssets.download, size: 22),
                     tooltip: 'Baixar',
                     onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Download de ${doc.name} iniciado...')),
+                      FileDownloadService.instance.downloadFile(
+                        context,
+                        url: doc.url,
+                        filename: doc.name,
                       );
                     },
                   ),

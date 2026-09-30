@@ -98,11 +98,19 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
           ),
         ),
         actions: [
-          IconButton(
+          TextButton.icon(
             onPressed: _openNewUserModal,
-            icon: const Icon(Icons.person_add_alt_1, color: _blue),
-            tooltip: 'Novo Usuário',
+            icon: const Icon(Icons.add, size: 18, color: _blue),
+            label: const Text(
+              'NOVO USUÁRIO',
+              style: TextStyle(
+                color: _blue,
+                fontWeight: FontWeight.bold,
+                fontSize: 12,
+              ),
+            ),
           ),
+          const SizedBox(width: 8),
         ],
       ),
       body: _loading
@@ -142,30 +150,17 @@ class _AdminUserManagementScreenState extends State<AdminUserManagementScreen> {
                   const SizedBox(height: 16),
 
                   // Header with Count and Action
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Usuários Cadastrados (${filtered.length})',
-                        style: const TextStyle(
-                          color: _blue,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
+                  // Header with Count
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Usuários Cadastrados (${filtered.length})',
+                      style: const TextStyle(
+                        color: _blue,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
                       ),
-                      TextButton.icon(
-                        onPressed: _openNewUserModal,
-                        icon: const Icon(Icons.add, size: 18, color: _blue),
-                        label: const Text(
-                          'NOVO USUÁRIO',
-                          style: TextStyle(
-                            color: _blue,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                   const SizedBox(height: 8),
 
@@ -649,7 +644,7 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
     final role = user['role']?.toString() ?? 'USER';
     final isAdmin = role == 'ADMIN';
     final avatarUrl = user['avatarUrl']?.toString();
-    final enrolledTrainings = user['enrolledTrainings'] as List? ?? [];
+    final enrolledTrainings = (user['enrolledTrainings'] ?? user['trainings']) as List? ?? [];
 
     return Scaffold(
       backgroundColor: _canvas,
@@ -783,25 +778,29 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
                     final courseTitle =
                         map['title']?.toString() ?? 'Treinamento';
                     final status = map['status']?.toString() ?? 'NAO_INICIADO';
-                    final progressPct =
+                    final rawPct =
                         (map['progressPercentage'] as num?)?.toDouble() ?? 0.0;
+                    final double normalizedPct = rawPct > 1.0
+                        ? (rawPct / 100.0).clamp(0.0, 1.0)
+                        : rawPct.clamp(0.0, 1.0);
+                    final int displayPct = (normalizedPct * 100).round();
                     final score = map['score'] as num?;
                     final completedModules =
                         map['completedModules'] ?? 0;
                     final totalModules = map['totalModules'] ?? 0;
 
-                    final (statusLabel, statusColor, statusBg) = switch (status) {
-                      'CONCLUIDO' => (
+                    final (statusLabel, statusColor, statusBg) = switch (status.toUpperCase()) {
+                      'CONCLUIDO' || 'CONCLUÍDO' => (
                           'Concluído',
                           const Color(0xFF16A34A),
                           const Color(0xFFDCFCE7)
                         ),
-                      'EM_CURSO' => (
+                      'EM_CURSO' || 'EM ANDAMENTO' => (
                           'Em andamento',
                           const Color(0xFFD97706),
                           const Color(0xFFFEF3C7)
                         ),
-                      'DESISTENCIA' => (
+                      'DESISTENCIA' || 'DESISTÊNCIA' => (
                           'Desistência',
                           const Color(0xFFDC2626),
                           const Color(0xFFFEE2E2)
@@ -857,9 +856,9 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
                                 child: ClipRRect(
                                   borderRadius: BorderRadius.circular(4),
                                   child: LinearProgressIndicator(
-                                    value: progressPct,
+                                    value: normalizedPct,
                                     minHeight: 6,
-                                    color: status == 'CONCLUIDO'
+                                    color: statusLabel == 'Concluído'
                                         ? const Color(0xFF22C55E)
                                         : _blue,
                                     backgroundColor: const Color(0xFFE5E7EB),
@@ -868,7 +867,7 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
                               ),
                               const SizedBox(width: 8),
                               Text(
-                                '${(progressPct * 100).toInt()}%',
+                                '$displayPct%',
                                 style: const TextStyle(
                                   color: _blue,
                                   fontSize: 12,

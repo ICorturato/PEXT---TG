@@ -16,6 +16,7 @@ import '../../services/api_client.dart';
 import '../../services/chat_service.dart';
 import '../../services/content_service.dart';
 import '../../services/doubt_service.dart';
+import '../../services/favorites_service.dart';
 import '../../services/file_download_service.dart';
 import '../../services/training_service.dart';
 import '../../widgets/pext_asset_icon.dart';
@@ -219,44 +220,43 @@ class _TermsLetterGroup extends StatelessWidget {
       ]));
 }
 
-class _TermFavoriteIconButton extends StatefulWidget {
+class _TermFavoriteIconButton extends StatelessWidget {
   final String termId;
   const _TermFavoriteIconButton({required this.termId});
 
   @override
-  State<_TermFavoriteIconButton> createState() => _TermFavoriteIconButtonState();
-}
-
-class _TermFavoriteIconButtonState extends State<_TermFavoriteIconButton> {
-  bool _isFavorited = false;
-
-  Future<void> _toggle() async {
-    try {
-      await ApiClient.instance.toggleFavorite(entityType: 'TERM', entityId: widget.termId);
-      if (mounted) {
-        setState(() => _isFavorited = !_isFavorited);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(_isFavorited ? 'Termo adicionado aos favoritos!' : 'Removido dos favoritos.'),
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
-    } catch (_) {}
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return IconButton(
-      icon: Icon(
-        _isFavorited ? Icons.favorite : Icons.favorite_border,
-        size: 20,
-        color: _isFavorited ? const Color(0xFFEF4444) : const Color(0xFF9CA3AF),
-      ),
-      onPressed: _toggle,
-      tooltip: 'Favoritar',
-      padding: EdgeInsets.zero,
-      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+    return ListenableBuilder(
+      listenable: FavoritesService.instance,
+      builder: (context, _) {
+        final isFavorited = FavoritesService.instance.isFavorite(termId);
+        return IconButton(
+          icon: Icon(
+            isFavorited ? Icons.favorite : Icons.favorite_border,
+            size: 20,
+            color: isFavorited ? const Color(0xFFEF4444) : const Color(0xFF9CA3AF),
+          ),
+          onPressed: () async {
+            final nowFav = await FavoritesService.instance.toggleFavorite(
+              entityType: 'TERM',
+              entityId: termId,
+            );
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(nowFav
+                      ? 'Termo adicionado aos favoritos!'
+                      : 'Removido dos favoritos.'),
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            }
+          },
+          tooltip: 'Favoritar',
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+        );
+      },
     );
   }
 }
@@ -285,32 +285,21 @@ class DetalhesTermoScreen extends StatefulWidget {
 }
 
 class _DetalhesTermoScreenState extends State<DetalhesTermoScreen> {
-  bool _isFavorited = false;
   ApiContent get item => widget.item;
-
-  @override
-  void initState() {
-    super.initState();
-    _checkFavorite();
-  }
-
-  Future<void> _checkFavorite() async {
-    try {
-      final res = await ApiClient.instance.getFavorites();
-      final terms = res['terms'] as List? ?? [];
-      final isFav = terms.any((t) => t['id'] == widget.item.id);
-      if (mounted) setState(() => _isFavorited = isFav);
-    } catch (_) {}
-  }
 
   Future<void> _toggleFavorite() async {
     try {
-      await ApiClient.instance.toggleFavorite(entityType: 'TERM', entityId: widget.item.id);
+      final nowFav = await FavoritesService.instance.toggleFavorite(
+        entityType: 'TERM',
+        entityId: widget.item.id,
+        itemData: widget.item.data,
+      );
       if (mounted) {
-        setState(() => _isFavorited = !_isFavorited);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(_isFavorited ? 'Termo adicionado aos favoritos!' : 'Termo removido dos favoritos.'),
+            content: Text(nowFav
+                ? 'Termo adicionado aos favoritos!'
+                : 'Termo removido dos favoritos.'),
             duration: const Duration(seconds: 2),
           ),
         );
@@ -328,17 +317,21 @@ class _DetalhesTermoScreenState extends State<DetalhesTermoScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => _Shell(
-        title: 'Dicionário de Termos',
-        admin: widget.admin,
-        action: widget.admin
-            ? null
-            : _BoxedHeaderAction(
-                icon: _isFavorited ? Icons.favorite : Icons.favorite_border,
-                color: _isFavorited ? const Color(0xFFEF4444) : _blue,
-                onTap: _toggleFavorite,
-              ),
-        child: ListView(children: [
+  Widget build(BuildContext context) => ListenableBuilder(
+        listenable: FavoritesService.instance,
+        builder: (context, _) {
+          final isFavorited = FavoritesService.instance.isFavorite(widget.item.id);
+          return _Shell(
+            title: 'Dicionário de Termos',
+            admin: widget.admin,
+            action: widget.admin
+                ? null
+                : _BoxedHeaderAction(
+                    icon: isFavorited ? Icons.favorite : Icons.favorite_border,
+                    color: isFavorited ? const Color(0xFFEF4444) : _blue,
+                    onTap: _toggleFavorite,
+                  ),
+            child: ListView(children: [
           if (widget.admin) ...[
             Row(children: [
               Expanded(
@@ -420,6 +413,7 @@ class _DetalhesTermoScreenState extends State<DetalhesTermoScreen> {
                   ])),
         ]),
       );
+    });
 }
 
 class CadastroTermoScreen extends StatefulWidget {
@@ -859,6 +853,34 @@ class _TrainingListScreenState extends State<TrainingListScreen> {
     await _trainingService.fetchTrainings();
   }
 
+  int _computeTrainingStatus(TrainingModel training) {
+    final isDropped = training.enrollmentStatus?.toUpperCase() == 'DROPPED' ||
+        training.enrollmentStatus?.toLowerCase() == 'desistência';
+    if (isDropped) return 1; // Desistência
+
+    final isCompleted = training.areAllModulesCompleted ||
+        (training.progressPercentage >= 1.0 && training.modules.isNotEmpty) ||
+        training.enrollmentStatus?.toUpperCase() == 'COMPLETED';
+    if (isCompleted) return 2; // Concluído
+
+    final isInProgress = training.progressPercentage > 0.0 ||
+        (training.isEnrolled && training.completedModuleCount > 0);
+    if (isInProgress) return 0; // Em curso
+
+    return 3; // Não iniciado
+  }
+
+  List<TrainingModel> _filterTrainings(List<TrainingModel> all) {
+    if (_filter == 1) {
+      return all.where((t) => _computeTrainingStatus(t) == 0).toList();
+    } else if (_filter == 2) {
+      return all.where((t) => _computeTrainingStatus(t) == 2).toList();
+    } else if (_filter == 3) {
+      return all.where((t) => _computeTrainingStatus(t) == 1).toList();
+    }
+    return all;
+  }
+
   @override
   Widget build(BuildContext context) => _Shell(
         title: 'Treinamentos',
@@ -877,7 +899,11 @@ class _TrainingListScreenState extends State<TrainingListScreen> {
                 },
                 icon: const Icon(Icons.add_circle_outline, color: _blue),
               )
-            : const Icon(Icons.favorite_border, color: _blue),
+            : IconButton(
+                onPressed: () => Navigator.pushNamed(context, PextRoutes.favorites),
+                icon: const Icon(Icons.favorite_border, color: _blue),
+                tooltip: 'Favoritos',
+              ),
         child: Column(children: [
           _TabBar(
             labels: _filters,
@@ -914,7 +940,9 @@ class _TrainingListScreenState extends State<TrainingListScreen> {
                   );
                 }
 
-                final trainings = _trainingService.trainings;
+                final allTrainings = _trainingService.trainings;
+                final trainings = _filterTrainings(allTrainings);
+
                 if (trainings.isEmpty) {
                   return Center(
                     child: Column(
@@ -923,9 +951,11 @@ class _TrainingListScreenState extends State<TrainingListScreen> {
                         const Icon(Icons.school_outlined,
                             size: 48, color: Colors.grey),
                         const SizedBox(height: 8),
-                        const Text(
-                          'Nenhum treinamento cadastrado.',
-                          style: TextStyle(color: Colors.grey),
+                        Text(
+                          allTrainings.isEmpty
+                              ? 'Nenhum treinamento cadastrado.'
+                              : 'Nenhum treinamento encontrado para este filtro.',
+                          style: const TextStyle(color: Colors.grey),
                         ),
                         if (widget.admin) ...[
                           const SizedBox(height: 12),
@@ -955,7 +985,12 @@ class _TrainingListScreenState extends State<TrainingListScreen> {
                   itemCount: trainings.length,
                   itemBuilder: (context, index) {
                     final training = trainings[index];
-                    final status = index % 4;
+                    final status = _computeTrainingStatus(training);
+                    final currentModule = training.nextIncompleteModule;
+                    final currentModuleSubtitle = currentModule != null
+                        ? 'Módulo ${currentModule.order} - ${currentModule.title}'
+                        : 'Todos os módulos concluídos';
+
                     return _TrainingTile(
                       trainingId: training.id,
                       status: status,
@@ -965,6 +1000,8 @@ class _TrainingListScreenState extends State<TrainingListScreen> {
                           : 'Treinamento',
                       moduleCount: training.modules.length,
                       questionCount: training.questionCount,
+                      progress: training.progressPercentage,
+                      currentModuleSubtitle: currentModuleSubtitle,
                       onTap: () => _openCourse(context, status, training),
                     );
                   },
@@ -1053,32 +1090,21 @@ class _TrainingDetailScreenState extends State<TrainingDetailScreen> {
               isCompleted: false,
             ),
           ];
-    _checkFavorite();
     _reloadTraining();
-  }
-
-  Future<void> _checkFavorite() async {
-    if (_training == null) return;
-    try {
-      final favs = await ApiClient.instance.getFavorites();
-      if (!mounted) return;
-      final list = favs['trainings'] as List? ?? [];
-      if (list.any((t) => t is Map && t['id'] == _training!.id)) {
-        setState(() => _isFavorited = true);
-      }
-    } catch (_) {}
   }
 
   Future<void> _toggleFavorite() async {
     if (_training == null) return;
     try {
-      await ApiClient.instance
-          .toggleFavorite(entityType: 'TRAINING', entityId: _training!.id);
+      final nowFav = await FavoritesService.instance.toggleFavorite(
+        entityType: 'TRAINING',
+        entityId: _training!.id,
+        itemData: _training!.toJson(),
+      );
       if (mounted) {
-        setState(() => _isFavorited = !_isFavorited);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(_isFavorited
+            content: Text(nowFav
                 ? 'Treinamento adicionado aos favoritos!'
                 : 'Removido dos favoritos.'),
             duration: const Duration(seconds: 2),
@@ -1290,10 +1316,17 @@ class _TrainingDetailScreenState extends State<TrainingDetailScreen> {
                   onTap: _deleteTraining,
                 ),
             ])
-          : _BoxedHeaderAction(
-              icon: _isFavorited ? Icons.favorite : Icons.favorite_border,
-              color: _isFavorited ? const Color(0xFFEF4444) : _blue,
-              onTap: _toggleFavorite,
+          : ListenableBuilder(
+              listenable: FavoritesService.instance,
+              builder: (context, _) {
+                final isFav = _training != null &&
+                    FavoritesService.instance.isFavorite(_training!.id);
+                return _BoxedHeaderAction(
+                  icon: isFav ? Icons.favorite : Icons.favorite_border,
+                  color: isFav ? const Color(0xFFEF4444) : _blue,
+                  onTap: _toggleFavorite,
+                );
+              },
             ),
       child: ListView(
         children: [
@@ -1936,6 +1969,16 @@ class _LessonVideoPlayerState extends State<_LessonVideoPlayer> {
     try {
       if (url != null && (url.startsWith('http://') || url.startsWith('https://'))) {
         _controller = VideoPlayerController.networkUrl(Uri.parse(url));
+      } else if (url != null && url.isNotEmpty) {
+        final filePath = url.startsWith('file://') ? Uri.parse(url).toFilePath() : url;
+        final file = File(filePath);
+        if (file.existsSync()) {
+          _controller = VideoPlayerController.file(file);
+        } else {
+          _controller = VideoPlayerController.networkUrl(Uri.parse(
+            'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+          ));
+        }
       } else {
         _controller = VideoPlayerController.networkUrl(Uri.parse(
           'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
@@ -1947,6 +1990,7 @@ class _LessonVideoPlayerState extends State<_LessonVideoPlayer> {
       if (mounted) {
         setState(() {
           _isInitialized = true;
+          _hasError = false;
         });
       }
     } catch (e) {
@@ -1954,6 +1998,7 @@ class _LessonVideoPlayerState extends State<_LessonVideoPlayer> {
       if (mounted) {
         setState(() {
           _hasError = true;
+          _isInitialized = false;
         });
       }
     }
@@ -2473,37 +2518,63 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
           ],
           if (!widget.admin) ...[
             const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF16A34A),
-                  minimumSize: const Size(0, 48),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
+            if (_currentModule?.isCompleted == true || _currentModule?.isFullyCompleted == true)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFDCFCE7),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFF86EFAC)),
                 ),
-                onPressed: _completing ? null : _completeModule,
-                icon: _completing
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Icon(Icons.check_circle_outline, color: Colors.white),
-                label: Text(
-                  _completing ? 'Concluindo...' : 'CONCLUIR MÓDULO',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                    color: Colors.white,
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.check_circle, color: Color(0xFF16A34A), size: 20),
+                    SizedBox(width: 8),
+                    Text(
+                      'Módulo Concluído',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                        color: Color(0xFF16A34A),
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF16A34A),
+                    minimumSize: const Size(0, 48),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  onPressed: _completing ? null : _completeModule,
+                  icon: _completing
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.check_circle_outline, color: Colors.white),
+                  label: Text(
+                    _completing ? 'Concluindo...' : 'CONCLUIR MÓDULO',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
               ),
-            ),
           ],
         ]),
       ),
@@ -3874,25 +3945,10 @@ class _ModuleEditorScreenState extends State<ModuleEditorScreen> {
     _descriptionController = TextEditingController(text: mod?.description ?? '');
     _videos = mod != null && mod.videos.isNotEmpty
         ? List.from(mod.videos)
-        : [
-            const TrainingVideo(
-              id: 'v1',
-              title: 'Processamento ...',
-              duration: '03:20',
-              urlOrPath: '',
-            ),
-          ];
+        : [];
     _documents = mod != null && mod.documents.isNotEmpty
         ? List.from(mod.documents)
-        : [
-            const TrainingDocument(
-              id: 'd1',
-              title: 'Ficha Técnica ...',
-              fileSize: 'PDF - 1,2 MB',
-              extension: 'PDF',
-              urlOrPath: '',
-            ),
-          ];
+        : [];
   }
 
   @override
@@ -5010,7 +5066,7 @@ class _ChatAssistantScreenState extends State<ChatAssistantScreen> {
     return _Shell(
         title: 'Assistente IA',
         admin: true,
-        action: _tab == 2
+        action: _tab == 3
             ? _BoxedHeaderAction(
                 icon: Icons.add,
                 onTap: () => Navigator.of(context).push(MaterialPageRoute(
@@ -5022,13 +5078,23 @@ class _ChatAssistantScreenState extends State<ChatAssistantScreen> {
                 : null),
         child: Column(children: [
           _TabBar(
-              labels: const ['Chat', 'Dúvidas', 'Conteúdo'],
+              labels: const ['Chat', 'Histórico', 'Dúvidas', 'Conteúdo'],
               value: _tab,
               onChanged: (value) => setState(() => _tab = value)),
           const SizedBox(height: 14),
           Expanded(
               child: IndexedStack(index: _tab, children: [
             _AssistantChatTab(key: _chatKey, isAdmin: true),
+            _UserChatHistoryTab(
+              onSelectSession: (session) {
+                _chatKey.currentState?.loadSession(session);
+                setState(() => _tab = 0);
+              },
+              onNewChat: () {
+                _chatKey.currentState?.startNewSession();
+                setState(() => _tab = 0);
+              },
+            ),
             const _DuvidasTabView(),
             const _ConteudoTabView(),
           ]))
@@ -5274,12 +5340,6 @@ class _AssistantChatTabState extends State<_AssistantChatTab> {
   final _messages = <_AssistantMessage>[
     const _AssistantMessage(
         text: 'Como posso ajudar na sua operação hoje?', mine: false),
-    const _AssistantMessage(
-        text: 'Qual a faixa de temperatura para PEBD?', mine: true),
-    const _AssistantMessage(
-        text:
-            'Consulte a ficha técnica. Para um ajuste específico de linha, posso encaminhar a solicitação para o supervisor.',
-        mine: false),
   ];
 
   @override
@@ -5329,14 +5389,13 @@ class _AssistantChatTabState extends State<_AssistantChatTab> {
   }
 
   void clearConversation() {
-    if (_sessionId.isNotEmpty && !widget.isAdmin) {
+    if (_sessionId.isNotEmpty) {
       ChatService.instance.deleteSession(_sessionId);
     }
     startNewSession();
   }
 
   void _saveCurrentSession(String lastAnswer) {
-    if (widget.isAdmin) return;
     if (_sessionId.isEmpty) {
       _sessionId = 'session_${DateTime.now().millisecondsSinceEpoch}';
     }
@@ -5862,7 +5921,7 @@ class _QuestionCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 9),
                 _StatusBadge(
-                  label: doubt.isAnswered ? 'Respondido' : 'Não respondida',
+                  label: doubt.isAnswered ? 'RESPONDIDA' : 'ABERTA',
                   color: color,
                 ),
               ],
@@ -5880,7 +5939,8 @@ class _QuestionCard extends StatelessWidget {
 
 class DoubtThreadScreen extends StatefulWidget {
   final DoubtModel doubt;
-  const DoubtThreadScreen({super.key, required this.doubt});
+  final bool admin;
+  const DoubtThreadScreen({super.key, required this.doubt, this.admin = false});
 
   @override
   State<DoubtThreadScreen> createState() => _DoubtThreadScreenState();
@@ -5955,7 +6015,7 @@ class _DoubtThreadScreenState extends State<DoubtThreadScreen> {
   @override
   Widget build(BuildContext context) => _Shell(
         title: 'Assistente IA',
-        admin: true,
+        admin: widget.admin,
         child: Column(children: [
           Container(
             padding: const EdgeInsets.all(14),
@@ -5977,7 +6037,68 @@ class _DoubtThreadScreenState extends State<DoubtThreadScreen> {
                         style: const TextStyle(
                             fontSize: 10, color: Color(0xFF737D8C)),
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 6),
+                      if (_doubt.verificationData != null &&
+                          _doubt.verificationData!.isNotEmpty) ...[
+                        Container(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF1F5F9),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: const Color(0xFFCBD5E1)),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Row(
+                                children: [
+                                  Icon(Icons.rule_outlined,
+                                      size: 14, color: _blue),
+                                  SizedBox(width: 4),
+                                  Text(
+                                    'Parâmetros de Verificação',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 11,
+                                      color: _blue,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              ...(_doubt.verificationData!.entries.map((entry) {
+                                final val = entry.value;
+                                if (val is Map) {
+                                  final pName =
+                                      val['parameterName'] ?? entry.key;
+                                  final target = val['target'] ?? '-';
+                                  final measured =
+                                      val['measuredValue'] ?? '-';
+                                  final dev = val['deviation'] ?? '-';
+                                  return Padding(
+                                    padding:
+                                        const EdgeInsets.symmetric(vertical: 1),
+                                    child: Text(
+                                      '$pName: Alvo=$target | Lido=$measured | Desvio=$dev',
+                                      style: const TextStyle(
+                                        fontSize: 10,
+                                        color: Color(0xFF334155),
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  );
+                                }
+                                return Text(
+                                  '${entry.key}: ${entry.value}',
+                                  style: const TextStyle(
+                                      fontSize: 10, color: Color(0xFF334155)),
+                                );
+                              })),
+                            ],
+                          ),
+                        ),
+                      ],
                       Text(
                         _doubt.question,
                         style: const TextStyle(
@@ -5986,7 +6107,7 @@ class _DoubtThreadScreenState extends State<DoubtThreadScreen> {
                       const SizedBox(height: 6),
                       _StatusBadge(
                         label:
-                            _doubt.isAnswered ? 'Respondido' : 'Não respondida',
+                            _doubt.isAnswered ? 'RESPONDIDA' : 'ABERTA',
                         color: _doubt.isAnswered
                             ? const Color(0xFF20BF64)
                             : const Color(0xFFF8494E),
@@ -7100,6 +7221,7 @@ class ComparacaoVersoesConteudoScreen extends StatelessWidget {
     final hasPrevDoc = prevDoc != null && prevDoc.trim().isNotEmpty;
     final curDoc = currentContent?.documentName;
     final hasCurDoc = curDoc != null && curDoc.trim().isNotEmpty;
+    final bool isUnchanged = (hasPrevDoc && hasCurDoc && prevDoc == curDoc) || (!hasPrevDoc && !hasCurDoc);
 
     return _Shell(
       title: 'Assistente IA',
@@ -7174,6 +7296,7 @@ class ComparacaoVersoesConteudoScreen extends StatelessWidget {
                 color: hasPrevDoc ? const Color(0xFFF0F4FA) : const Color(0xFFFFE9E9),
                 status: hasPrevDoc ? 'Anterior' : 'Nenhum',
                 statusColor: hasPrevDoc ? _blue : const Color(0xFFF8494E),
+                url: previousSnapshot?['documentUrl']?.toString(),
               ),
             ),
             const SizedBox(width: 8),
@@ -7181,9 +7304,16 @@ class ComparacaoVersoesConteudoScreen extends StatelessWidget {
               child: _AttachmentVersion(
                 label: 'Versão atual',
                 documentName: hasCurDoc ? curDoc! : 'Nenhum documento anexado',
-                color: hasCurDoc ? const Color(0xFFD6F9D9) : const Color(0xFFFFE9E9),
-                status: hasCurDoc ? 'Adicionado' : 'Removido',
-                statusColor: hasCurDoc ? const Color(0xFF20BF64) : const Color(0xFFF8494E),
+                color: isUnchanged
+                    ? const Color(0xFFF0F4FA)
+                    : (hasCurDoc ? const Color(0xFFD6F9D9) : const Color(0xFFFFE9E9)),
+                status: isUnchanged
+                    ? 'Arquivo mantido (sem alteração)'
+                    : (hasCurDoc ? 'Adicionado' : 'Removido'),
+                statusColor: isUnchanged
+                    ? const Color(0xFF6B7280)
+                    : (hasCurDoc ? const Color(0xFF20BF64) : const Color(0xFFF8494E)),
+                url: currentContent?.documentUrl,
               ),
             ),
           ]),
@@ -7236,6 +7366,7 @@ class _VersionColumn extends StatelessWidget {
 class _AttachmentVersion extends StatelessWidget {
   final String label, status, documentName;
   final Color color, statusColor;
+  final String? url;
 
   const _AttachmentVersion({
     required this.label,
@@ -7243,6 +7374,7 @@ class _AttachmentVersion extends StatelessWidget {
     required this.color,
     required this.status,
     required this.statusColor,
+    this.url,
   });
 
   @override
@@ -7271,7 +7403,21 @@ class _AttachmentVersion extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(fontSize: 8),
                   ),
-                )
+                ),
+                if (documentName != 'Nenhum documento anexado')
+                  IconButton(
+                    icon: const Icon(Icons.download_rounded, size: 16, color: _blue),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+                    tooltip: 'Baixar arquivo',
+                    onPressed: () {
+                      FileDownloadService.instance.downloadFile(
+                        context,
+                        url: url ?? documentName,
+                        filename: documentName,
+                      );
+                    },
+                  ),
               ]),
               const SizedBox(height: 6),
               Align(
@@ -8300,74 +8446,6 @@ class DadosTabView extends StatelessWidget {
     return SingleChildScrollView(
       padding: const EdgeInsets.only(bottom: 12),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        if (admin) ...[
-          Material(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
-            child: InkWell(
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const AdminUserManagementScreen(),
-                  ),
-                );
-              },
-              borderRadius: BorderRadius.circular(14),
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                decoration: BoxDecoration(
-                  border: Border.all(
-                      color: _blue.withValues(alpha: 0.3), width: 1.2),
-                  borderRadius: BorderRadius.circular(14),
-                  color: _blue.withValues(alpha: 0.04),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: _blue,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(Icons.people_alt_outlined,
-                          color: Colors.white, size: 22),
-                    ),
-                    const SizedBox(width: 14),
-                    const Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Cadastrar Novo Usuário',
-                            style: TextStyle(
-                              color: _blue,
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          SizedBox(height: 2),
-                          Text(
-                            'Adicionar novo operador ou colaborador ao sistema',
-                            style: TextStyle(
-                              color: Color(0xFF6B7280),
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Icon(Icons.arrow_forward_ios_rounded,
-                        color: _blue, size: 18),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-        ],
         ...fields.map((field) =>
             _ProfileField(label: field.$1, value: field.$2, editable: editing)),
         const SizedBox(height: 5),
@@ -8962,66 +9040,43 @@ class _TabBar extends StatelessWidget {
           .toList());
 }
 
-class _TrainingFavoriteIconButton extends StatefulWidget {
+class _TrainingFavoriteIconButton extends StatelessWidget {
   final String trainingId;
   const _TrainingFavoriteIconButton({required this.trainingId});
 
   @override
-  State<_TrainingFavoriteIconButton> createState() =>
-      _TrainingFavoriteIconButtonState();
-}
-
-class _TrainingFavoriteIconButtonState
-    extends State<_TrainingFavoriteIconButton> {
-  bool _isFavorited = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _check();
-  }
-
-  Future<void> _check() async {
-    try {
-      final favs = await ApiClient.instance.getFavorites();
-      if (!mounted) return;
-      final list = favs['trainings'] as List? ?? [];
-      if (list.any((t) => t is Map && t['id'] == widget.trainingId)) {
-        setState(() => _isFavorited = true);
-      }
-    } catch (_) {}
-  }
-
-  Future<void> _toggle() async {
-    try {
-      await ApiClient.instance
-          .toggleFavorite(entityType: 'TRAINING', entityId: widget.trainingId);
-      if (mounted) {
-        setState(() => _isFavorited = !_isFavorited);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(_isFavorited
-                ? 'Treinamento adicionado aos favoritos!'
-                : 'Removido dos favoritos.'),
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
-    } catch (_) {}
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return IconButton(
-      icon: Icon(
-        _isFavorited ? Icons.favorite : Icons.favorite_border,
-        size: 20,
-        color: _isFavorited ? const Color(0xFFEF4444) : const Color(0xFF9CA3AF),
-      ),
-      onPressed: _toggle,
-      tooltip: 'Favoritar',
-      padding: EdgeInsets.zero,
-      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+    return ListenableBuilder(
+      listenable: FavoritesService.instance,
+      builder: (context, _) {
+        final isFavorited = FavoritesService.instance.isFavorite(trainingId);
+        return IconButton(
+          icon: Icon(
+            isFavorited ? Icons.favorite : Icons.favorite_border,
+            size: 20,
+            color: isFavorited ? const Color(0xFFEF4444) : const Color(0xFF9CA3AF),
+          ),
+          onPressed: () async {
+            final nowFav = await FavoritesService.instance.toggleFavorite(
+              entityType: 'TRAINING',
+              entityId: trainingId,
+            );
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(nowFav
+                      ? 'Treinamento adicionado aos favoritos!'
+                      : 'Removido dos favoritos.'),
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            }
+          },
+          tooltip: 'Favoritar',
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+        );
+      },
     );
   }
 }
@@ -9034,23 +9089,40 @@ class _TrainingTile extends StatelessWidget {
   final String? title;
   final int? moduleCount;
   final int? questionCount;
-  const _TrainingTile(
-      {this.trainingId,
-      required this.status,
-      required this.admin,
-      required this.onTap,
-      this.title,
-      this.moduleCount,
-      this.questionCount});
+  final double? progress;
+  final String? currentModuleSubtitle;
+
+  const _TrainingTile({
+    this.trainingId,
+    required this.status,
+    required this.admin,
+    required this.onTap,
+    this.title,
+    this.moduleCount,
+    this.questionCount,
+    this.progress,
+    this.currentModuleSubtitle,
+  });
+
   @override
   Widget build(BuildContext context) {
-    final labels = ['Em curso', 'Desistência', 'Concluído', 'Concluído'];
-    final colors = [
-      const Color(0xFFF0A000),
-      const Color(0xFFF04444),
-      const Color(0xFF1AB65C),
-      const Color(0xFF1AB65C),
+    final labels = const ['Em curso', 'Desistência', 'Concluído', 'Não iniciado'];
+    final colors = const [
+      Color(0xFFF0A000),
+      Color(0xFFF04444),
+      Color(0xFF1AB65C),
+      Color(0xFF6B7280),
     ];
+    final safeStatus = (status >= 0 && status < labels.length) ? status : 3;
+
+    final double progVal;
+    if (progress != null) {
+      progVal = progress!.clamp(0.0, 1.0);
+    } else {
+      progVal = safeStatus == 2 ? 1.0 : (safeStatus == 0 ? 0.7 : 0.0);
+    }
+    final int progPercent = (progVal * 100).toInt();
+
     return InkWell(
         onTap: onTap,
         child: Container(
@@ -9076,60 +9148,51 @@ class _TrainingTile extends StatelessWidget {
                     Row(children: [
                       Expanded(
                           child: Text(title ?? 'Processo de extrusão',
-                              style: TextStyle(
+                              style: const TextStyle(
                                   color: _blue, fontWeight: FontWeight.bold))),
                       if (!admin && trainingId != null)
                         _TrainingFavoriteIconButton(trainingId: trainingId!),
-                      if (!admin) _Pill(labels[status], colors[status])
+                      if (!admin) _Pill(labels[safeStatus], colors[safeStatus])
                     ]),
                     Text(
                         admin
                             ? '${moduleCount ?? 10} Módulos  •  ${questionCount ?? 20} Questões'
-                            : 'Módulo 2 - Temperatura e pressão',
+                            : (currentModuleSubtitle ?? 'Módulo 2 - Temperatura e pressão'),
                         style: const TextStyle(fontSize: 8)),
                     if (!admin) ...[
                       const SizedBox(height: 7),
                       Row(children: [
                         Expanded(
                             child: LinearProgressIndicator(
-                                value: status >= 2
-                                    ? 1
-                                    : status == 1
-                                        ? 0
-                                        : .7,
+                                value: progVal,
                                 color: _blue,
                                 backgroundColor: _border,
                                 minHeight: 5)),
                         const SizedBox(width: 5),
-                        Text(
-                            status >= 2
-                                ? '100%'
-                                : status == 1
-                                    ? '0%'
-                                    : '70%',
+                        Text('$progPercent%',
                             style: const TextStyle(fontSize: 10, color: _blue))
                       ]),
                     ],
-                    if (!admin && status == 1)
+                    if (!admin && safeStatus == 1)
                       const _TrainingContextBanner(
                         asset: PextAssets.tryAgain,
                         color: Color(0xFFF04444),
                         text: 'Você parou de estudar. Retome de onde parou.',
                       ),
-                    if (!admin && status == 2)
+                    if (!admin && safeStatus == 2)
                       const _TrainingContextBanner(
                         asset: PextAssets.approved,
                         color: Color(0xFF1AB65C),
                         text:
                             'Aprovado - Você acertou 18 de 20 questões (90%).',
                       ),
-                    if (!admin && status == 3)
+                    if (!admin && safeStatus == 3)
                       const _TrainingContextBanner(
                         asset: PextAssets.warning,
-                        color: Color(0xFFF0A000),
-                        iconBackground: Color(0xFFF59E0B),
+                        color: Color(0xFF6B7280),
+                        iconBackground: Color(0xFF9CA3AF),
                         text:
-                            'Reprovado - Você acertou 11 de 20 questões (55%).',
+                            'Treinamento disponível. Inicie para começar sua capacitação.',
                       ),
                   ])),
               const Icon(

@@ -245,6 +245,8 @@ class ResinDocument {
     this.extension = 'PDF',
   });
 
+  String get url => urlOrPath;
+
   ResinDocument copyWith({
     String? id,
     String? name,

@@ -8,6 +8,7 @@ import 'features/resins/resins_screens.dart';
 import 'features/troubleshooting/troubleshooting_screens.dart';
 import 'models/training_model.dart';
 import 'services/api_client.dart';
+import 'services/favorites_service.dart';
 import 'services/training_service.dart';
 import 'widgets/pext_asset_icon.dart';
 
@@ -1240,53 +1241,24 @@ class FavoritesPage extends StatefulWidget {
 
 class _FavoritesPageState extends State<FavoritesPage> {
   int _tab = 0; // 0: Todos, 1: Resinas, 2: Treinamentos, 3: Termos
-  bool _loading = true;
-  List<Map<String, dynamic>> _resins = [];
-  List<Map<String, dynamic>> _trainings = [];
-  List<Map<String, dynamic>> _terms = [];
 
   @override
   void initState() {
     super.initState();
-    _loadFavorites();
+    FavoritesService.instance.loadFavorites();
   }
 
   Future<void> _loadFavorites() async {
-    setState(() => _loading = true);
-    try {
-      final res = await ApiClient.instance.getFavorites();
-      if (mounted) {
-        setState(() {
-          _resins = (res['resins'] as List? ?? [])
-              .map((e) => Map<String, dynamic>.from(e as Map))
-              .toList();
-          _trainings = (res['trainings'] as List? ?? [])
-              .map((e) => Map<String, dynamic>.from(e as Map))
-              .toList();
-          _terms = (res['terms'] as List? ?? [])
-              .map((e) => Map<String, dynamic>.from(e as Map))
-              .toList();
-          _loading = false;
-        });
-      }
-    } catch (_) {
-      if (mounted) setState(() => _loading = false);
-    }
+    await FavoritesService.instance.loadFavorites();
   }
 
   Future<void> _toggleFavorite(String entityType, String entityId) async {
     try {
-      await ApiClient.instance.toggleFavorite(entityType: entityType, entityId: entityId);
+      await FavoritesService.instance.toggleFavorite(
+        entityType: entityType,
+        entityId: entityId,
+      );
       if (mounted) {
-        setState(() {
-          if (entityType == 'RESIN') {
-            _resins.removeWhere((r) => r['id']?.toString() == entityId);
-          } else if (entityType == 'TRAINING') {
-            _trainings.removeWhere((t) => t['id']?.toString() == entityId);
-          } else if (entityType == 'TERM') {
-            _terms.removeWhere((t) => t['id']?.toString() == entityId);
-          }
-        });
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Removido dos favoritos.'),
@@ -1308,157 +1280,167 @@ class _FavoritesPageState extends State<FavoritesPage> {
 
   @override
   Widget build(BuildContext context) {
-    final showResins = (_tab == 0 || _tab == 1) && _resins.isNotEmpty;
-    final showTrainings = (_tab == 0 || _tab == 2) && _trainings.isNotEmpty;
-    final showTerms = (_tab == 0 || _tab == 3) && _terms.isNotEmpty;
-    final hasAny = showResins || showTrainings || showTerms;
+    return ListenableBuilder(
+      listenable: FavoritesService.instance,
+      builder: (context, _) {
+        final resins = FavoritesService.instance.resins;
+        final trainings = FavoritesService.instance.trainings;
+        final terms = FavoritesService.instance.terms;
+        final loading = FavoritesService.instance.isLoading;
 
-    return PageFrame(
-      title: 'Favoritos',
-      selected: 1,
-      returnToHome: true,
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  _favFilterChip('Todos', 0),
-                  const SizedBox(width: 8),
-                  _favFilterChip('Resinas (${_resins.length})', 1),
-                  const SizedBox(width: 8),
-                  _favFilterChip('Treinamentos (${_trainings.length})', 2),
-                  const SizedBox(width: 8),
-                  _favFilterChip('Termos (${_terms.length})', 3),
-                ],
-              ),
-            ),
-          ),
-          Expanded(
-            child: _loading
-                ? const Center(child: CircularProgressIndicator(color: _blue))
-                : RefreshIndicator(
-                    onRefresh: _loadFavorites,
-                    color: _blue,
-                    child: !hasAny
-                        ? ListView(
-                            padding: const EdgeInsets.all(32),
-                            children: [
-                              const SizedBox(height: 60),
-                              const Icon(Icons.favorite_border,
-                                  size: 64, color: Color(0xFF9CA3AF)),
-                              const SizedBox(height: 16),
-                              const Center(
-                                child: Text(
-                                  'Nenhum favorito encontrado',
-                                  style: TextStyle(
-                                    color: _blue,
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              const Center(
-                                child: Text(
-                                  'Toque no ícone de coração em resinas, treinamentos ou termos para adicioná-los aos seus favoritos.',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                      color: Color(0xFF6B7280), fontSize: 13),
-                                ),
-                              ),
-                            ],
-                          )
-                        : ListView(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 8),
-                            children: [
-                              // Resinas Section
-                              if (showResins) ...[
-                                FavoriteSectionHeader(
-                                    'Resinas (${_resins.length})',
-                                    PextAssets.recycling),
-                                ..._resins.map((r) => _DynamicFavoriteResinCard(
-                                      resin: r,
-                                      onUnfavorite: () => _toggleFavorite(
-                                          'RESIN', r['id']?.toString() ?? ''),
-                                      onTap: () async {
-                                        await Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (_) => DetalhesResinaScreen(
-                                              resinId: r['id']?.toString() ?? '',
-                                              admin: false,
-                                            ),
-                                          ),
-                                        );
-                                        _loadFavorites();
-                                      },
-                                    )),
-                                if (_tab == 0 && (showTrainings || showTerms))
-                                  const FavoriteDivider(),
-                              ],
+        final showResins = (_tab == 0 || _tab == 1) && resins.isNotEmpty;
+        final showTrainings = (_tab == 0 || _tab == 2) && trainings.isNotEmpty;
+        final showTerms = (_tab == 0 || _tab == 3) && terms.isNotEmpty;
+        final hasAny = showResins || showTrainings || showTerms;
 
-                              // Treinamentos Section
-                              if (showTrainings) ...[
-                                FavoriteSectionHeader(
-                                    'Treinamentos (${_trainings.length})',
-                                    PextAssets.training),
-                                ..._trainings.map((t) =>
-                                    _DynamicFavoriteTrainingCard(
-                                      training: t,
-                                      onUnfavorite: () => _toggleFavorite(
-                                          'TRAINING', t['id']?.toString() ?? ''),
-                                      onTap: () async {
-                                        await Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (_) => TrainingDetailScreen(
-                                              training:
-                                                  TrainingModel.fromJson(t),
-                                              admin: false,
-                                            ),
-                                          ),
-                                        );
-                                        _loadFavorites();
-                                      },
-                                    )),
-                                if (_tab == 0 && showTerms)
-                                  const FavoriteDivider(),
-                              ],
-
-                              // Termos Section
-                              if (showTerms) ...[
-                                FavoriteSectionHeader(
-                                    'Termos (${_terms.length})',
-                                    PextAssets.glossary),
-                                ..._terms.map((t) => _DynamicFavoriteTermCard(
-                                      term: t,
-                                      onUnfavorite: () => _toggleFavorite(
-                                          'TERM', t['id']?.toString() ?? ''),
-                                      onTap: () async {
-                                        await Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (_) => DetalhesTermoScreen(
-                                              item: ApiContent(t),
-                                              admin: false,
-                                            ),
-                                          ),
-                                        );
-                                        _loadFavorites();
-                                      },
-                                    )),
-                              ],
-                              const SizedBox(height: 24),
-                            ],
-                          ),
+        return PageFrame(
+          title: 'Favoritos',
+          selected: 1,
+          returnToHome: true,
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      _favFilterChip('Todos', 0),
+                      const SizedBox(width: 8),
+                      _favFilterChip('Resinas (${resins.length})', 1),
+                      const SizedBox(width: 8),
+                      _favFilterChip('Treinamentos (${trainings.length})', 2),
+                      const SizedBox(width: 8),
+                      _favFilterChip('Termos (${terms.length})', 3),
+                    ],
                   ),
+                ),
+              ),
+              Expanded(
+                child: loading && !hasAny
+                    ? const Center(child: CircularProgressIndicator(color: _blue))
+                    : RefreshIndicator(
+                        onRefresh: _loadFavorites,
+                        color: _blue,
+                        child: !hasAny
+                            ? ListView(
+                                padding: const EdgeInsets.all(32),
+                                children: [
+                                  const SizedBox(height: 60),
+                                  const Icon(Icons.favorite_border,
+                                      size: 64, color: Color(0xFF9CA3AF)),
+                                  const SizedBox(height: 16),
+                                  const Center(
+                                    child: Text(
+                                      'Nenhum favorito encontrado',
+                                      style: TextStyle(
+                                        color: _blue,
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  const Center(
+                                    child: Text(
+                                      'Toque no ícone de coração em resinas, treinamentos ou termos para adicioná-los aos seus favoritos.',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                          color: Color(0xFF6B7280), fontSize: 13),
+                                    ),
+                                  ),
+                                ],
+                              )
+                            : ListView(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 16, vertical: 8),
+                                children: [
+                                  // Resinas Section
+                                  if (showResins) ...[
+                                    FavoriteSectionHeader(
+                                        'Resinas (${resins.length})',
+                                        PextAssets.recycling),
+                                    ...resins.map((r) => _DynamicFavoriteResinCard(
+                                          resin: r,
+                                          onUnfavorite: () => _toggleFavorite(
+                                              'RESIN', r['id']?.toString() ?? ''),
+                                          onTap: () async {
+                                            await Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder: (_) => DetalhesResinaScreen(
+                                                  resinId: r['id']?.toString() ?? '',
+                                                  admin: false,
+                                                ),
+                                              ),
+                                            );
+                                            _loadFavorites();
+                                          },
+                                        )),
+                                    if (_tab == 0 && (showTrainings || showTerms))
+                                      const FavoriteDivider(),
+                                  ],
+
+                                  // Treinamentos Section
+                                  if (showTrainings) ...[
+                                    FavoriteSectionHeader(
+                                        'Treinamentos (${trainings.length})',
+                                        PextAssets.training),
+                                    ...trainings.map((t) =>
+                                        _DynamicFavoriteTrainingCard(
+                                          training: t,
+                                          onUnfavorite: () => _toggleFavorite(
+                                              'TRAINING', t['id']?.toString() ?? ''),
+                                          onTap: () async {
+                                            await Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder: (_) => TrainingDetailScreen(
+                                                  training:
+                                                      TrainingModel.fromJson(t),
+                                                  admin: false,
+                                                ),
+                                              ),
+                                            );
+                                            _loadFavorites();
+                                          },
+                                        )),
+                                    if (_tab == 0 && showTerms)
+                                      const FavoriteDivider(),
+                                  ],
+
+                                  // Termos Section
+                                  if (showTerms) ...[
+                                    FavoriteSectionHeader(
+                                        'Termos (${terms.length})',
+                                        PextAssets.glossary),
+                                    ...terms.map((t) => _DynamicFavoriteTermCard(
+                                          term: t,
+                                          onUnfavorite: () => _toggleFavorite(
+                                              'TERM', t['id']?.toString() ?? ''),
+                                          onTap: () async {
+                                            await Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder: (_) => DetalhesTermoScreen(
+                                                  item: ApiContent(t),
+                                                  admin: false,
+                                                ),
+                                              ),
+                                            );
+                                            _loadFavorites();
+                                          },
+                                        )),
+                                  ],
+                                  const SizedBox(height: 24),
+                                ],
+                              ),
+                      ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 

@@ -51,6 +51,7 @@ class DoubtModel {
   final String? machineId;
   final String? processContext;
   final String? description;
+  final Map<String, dynamic>? verificationData;
   final List<DoubtMessage> messages;
 
   const DoubtModel({
@@ -64,6 +65,7 @@ class DoubtModel {
     this.machineId,
     this.processContext,
     this.description,
+    this.verificationData,
     this.messages = const [],
   });
 
@@ -80,6 +82,9 @@ class DoubtModel {
         machineId: json['machineId']?.toString(),
         processContext: json['processContext']?.toString(),
         description: json['description']?.toString(),
+        verificationData: json['verificationData'] != null
+            ? Map<String, dynamic>.from(json['verificationData'] as Map)
+            : null,
         messages: (json['messages'] as List? ?? [])
             .map((e) => DoubtMessage.fromJson(e as Map<String, dynamic>))
             .toList(),
@@ -96,6 +101,7 @@ class DoubtModel {
         if (machineId != null) 'machineId': machineId,
         if (processContext != null) 'processContext': processContext,
         if (description != null) 'description': description,
+        if (verificationData != null) 'verificationData': verificationData,
         'messages': messages.map((m) => m.toJson()).toList(),
       };
 
@@ -110,6 +116,7 @@ class DoubtModel {
     String? machineId,
     String? processContext,
     String? description,
+    Map<String, dynamic>? verificationData,
     List<DoubtMessage>? messages,
   }) =>
       DoubtModel(
@@ -123,6 +130,7 @@ class DoubtModel {
         machineId: machineId ?? this.machineId,
         processContext: processContext ?? this.processContext,
         description: description ?? this.description,
+        verificationData: verificationData ?? this.verificationData,
         messages: messages ?? this.messages,
       );
 }

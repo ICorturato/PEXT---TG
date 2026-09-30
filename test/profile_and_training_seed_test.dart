@@ -7,7 +7,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('Profile and User Management Tests', () {
-    testWidgets('UserProfileScreen renders user details and admin registration card for admins',
+    testWidgets('UserProfileScreen renders user details and hides user registration card on profile',
         (tester) async {
       await tester.pumpWidget(
         const MaterialApp(
@@ -23,9 +23,9 @@ void main() {
       expect(find.text('Dados'), findsOneWidget);
       expect(find.text('Segurança'), findsOneWidget);
 
-      // Verify that admin sees "Cadastrar Novo Usuário" action card
-      expect(find.text('Cadastrar Novo Usuário'), findsOneWidget);
-      expect(find.text('Adicionar novo operador ou colaborador ao sistema'), findsOneWidget);
+      // Verify that "Cadastrar Novo Usuário" action card was removed from profile
+      expect(find.text('Cadastrar Novo Usuário'), findsNothing);
+      expect(find.text('Adicionar novo operador ou colaborador ao sistema'), findsNothing);
     });
 
     testWidgets('UserProfileScreen hides admin registration card for standard users',
