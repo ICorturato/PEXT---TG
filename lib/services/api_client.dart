@@ -579,6 +579,14 @@ class ApiClient {
     return getRaw('/dashboard/stats');
   }
 
+  Future<Map<String, dynamic>> getAnalytics(String subResource, {String period = '30d'}) async {
+    return getRaw('/analytics/$subResource?period=$period');
+  }
+
+  Future<Map<String, dynamic>> getFullDashboardAnalytics({String period = '30d'}) async {
+    return getRaw('/analytics/all?period=$period');
+  }
+
   Future<http.Response> _get(String path) => http
       .get(Uri.parse('$baseUrl$path'), headers: _headers)
       .timeout(const Duration(seconds: 10));

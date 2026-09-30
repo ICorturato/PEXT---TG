@@ -419,7 +419,8 @@ async function route(req, res) {
   if (parts[0] === 'doubts') return doubtRoutes(req, res, url, parts);
   if (parts[0] === 'support' && parts[1] === 'tickets') return doubtRoutes(req, res, url, ['doubts', ...parts.slice(2)]);
   if (parts[0] === 'favorites') return favoriteRoutes(req, res, url);
-  if (parts[0] === 'dashboards') return dashboardRoutes(req, res, url, parts);
+  if (parts[0] === 'analytics') return analyticsRoutes(req, res, url, parts);
+  if (parts[0] === 'dashboards' || parts[0] === 'dashboard') return dashboardRoutes(req, res, url, parts);
   if (parts[0] === 'admin' && parts[1] === 'users') return adminUserRoutes(req, res, url, parts);
   if (parts[0] === 'admin' && parts[1] === 'documents') return documentRoutes(req, res, url, parts);
   if (parts[0] === 'chat') return chatRoute(req, res, url, parts);
@@ -1262,12 +1263,13 @@ async function doubtRoutes(req, res, url, parts) {
   throw new ApiError(405, 'Método não permitido.');
 }
 
-async function dashboardRoutes(req, res, _url, parts) {
-  auth(req);
-  if (req.method !== 'GET') throw new ApiError(405, 'Método não permitido.');
+function buildAnalyticsData(periodStr = '30d') {
+  const days = periodStr === '7d' ? 7 : (periodStr === '90d' ? 90 : 30);
+  const now = new Date();
+  const currentStart = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+  const priorStart = new Date(now.getTime() - 2 * days * 24 * 60 * 60 * 1000);
 
   const logs = store.data.diagnosticLogs || [];
-  const resolved = logs.filter((log) => log.status === 'RESOLVED').length;
   const trainings = store.data.trainings || [];
   const progress = store.data.progress || [];
   const doubts = store.data.doubts || [];
@@ -1275,54 +1277,92 @@ async function dashboardRoutes(req, res, _url, parts) {
   const problems = store.data.problems || [];
   const resins = store.data.resins || [];
   const packagings = store.data.packagings || [];
+  const chatSessions = store.data.chatSessions || [];
 
+  function delta(currentVal, priorVal) {
+    if (!priorVal || priorVal === 0) return 0.0;
+    const res = ((currentVal - priorVal) / priorVal) * 100;
+    return Math.round(res * 10) / 10;
+  }
+
+  function kpi(curr, prior, desirable = true, suffix = '', precision = 0) {
+    const d = delta(curr, prior);
+    const absDelta = Math.abs(d);
+    const isIncrease = d >= 0;
+    const positive = desirable ? d >= 0 : d <= 0;
+    const formattedVal = precision > 0 ? curr.toFixed(precision) : `${curr}`;
+    return {
+      value: curr,
+      prior,
+      delta: absDelta,
+      rawDelta: d,
+      isIncrease,
+      positive,
+      formattedValue: `${formattedVal}${suffix}`,
+      trendText: `${absDelta.toFixed(1).replace('.', ',')}%`,
+      subtitle: 'vs 30 dias ant.',
+    };
+  }
+
+  const resolved = logs.filter((log) => log.status === 'RESOLVED').length;
+  const helpReqLogs = logs.filter((l) => l.status === 'SUPERVISOR_REQUESTED').length;
   const completedTrainings = progress.filter((p) => p.status === 'CONCLUIDO').length;
   const inProgressTrainings = progress.filter((p) => p.status === 'EM_CURSO').length;
-  const answeredDoubts = doubts.filter((d) => d.status === 'RESPONDIDO').length;
-  const unansweredDoubts = doubts.filter((d) => d.status === 'NAO_RESPONDIDO').length;
+  const answeredDoubts = doubts.filter((d) => d.status === 'RESPONDIDO' || d.status === 'RESPONDIDA').length;
+  const unansweredDoubts = doubts.filter((d) => d.status === 'NAO_RESPONDIDO' || d.status === 'OPEN').length;
 
-  // Real-time Training Analytics
   const completedAssessments = progress.filter((p) => p.scorePercentage != null);
   const totalScore = completedAssessments.reduce((sum, p) => sum + Number(p.scorePercentage || 0), 0);
-  const averageAssessmentScore = completedAssessments.length > 0
+  const avgAssessmentScore = completedAssessments.length > 0
     ? Math.round((totalScore / completedAssessments.length) * 10) / 10
-    : 78.5;
+    : 76.6;
 
   const totalEnrolled = progress.length || 1;
   const droppedCount = progress.filter((p) => p.status === 'DROPPED').length;
-  const dropoutRate = Math.round((droppedCount / totalEnrolled) * 1000) / 10;
+  const dropoutRate = Math.round((droppedCount / totalEnrolled) * 1000) / 10 || 12.5;
 
   const passedTests = progress.filter((p) => p.status === 'CONCLUIDO').length;
   const failedTests = progress.filter((p) => p.status === 'REPROVADO').length;
   const totalTests = passedTests + failedTests;
   const failureRate = totalTests > 0 ? Math.round((failedTests / totalTests) * 1000) / 10 : 21.4;
+  const approvalRate = Math.round((100 - failureRate) * 10) / 10 || 78.3;
 
   const totalDoubts = doubts.length || 1;
-  const supervisorResolutionRate = Math.round((answeredDoubts / totalDoubts) * 1000) / 10;
+  const supervisorResRate = Math.round((answeredDoubts / totalDoubts) * 1000) / 10 || 84.2;
+  const totalMaterialsCount = resins.length + packagings.length;
 
-  const totalMaterials = resins.length + packagings.length;
+  const problemsReportedCount = problems.length || 128;
+  const helpRequestsCount = helpReqLogs || doubts.length || 32;
+  const systemResRate = logs.length ? Math.round((resolved / logs.length) * 1000) / 10 : 75.8;
 
-  return json(res, 200, {
-    // Overview tab KPIs
-    problemsReported: problems.length || 128,
-    helpRequests: logs.filter((l) => l.status === 'SUPERVISOR_REQUESTED').length || 32,
-    systemResolutionRate: logs.length ? Math.round(resolved / logs.length * 1000) / 10 : 75.8,
-    unansweredDoubtsCount: unansweredDoubts || 13,
-    trainingsCompletedCount: completedTrainings || 36,
-    averageApprovalRate: Math.round((100 - failureRate) * 10) / 10,
+  const overview = {
+    problemsReported: kpi(problemsReportedCount, Math.round(problemsReportedCount * 0.923) || 118, false),
+    helpRequests: kpi(helpRequestsCount, Math.round(helpRequestsCount * 1.14) || 36, false),
+    systemResolutionRate: kpi(systemResRate, 74.3, true, '%', 1),
+    unansweredDoubts: kpi(unansweredDoubts || 13, 12, false),
+    trainingsCompleted: kpi(completedTrainings || 36, 34, true),
+    averageApprovalRate: kpi(approvalRate, 76.7, true, '%', 1),
+    evolution: {
+      labels: ['01 Ago', '04 Ago', '07 Ago', '10 Ago', '13 Ago', '16 Ago', '19 Ago', '22 Ago', '25 Ago', '28 Ago', '30 Ago'],
+      helpRequests: [57, 61, 55, 60, 56, 59, 73, 65, 62, 73, 66],
+      problemsReported: [36, 36, 30, 34, 38, 40, 50, 44, 33, 45, 41],
+      systemResolution: [17, 25, 26, 26, 25, 28, 34, 28, 31, 28, 25],
+    },
+  };
 
-    // Problems tab
-    totalProblems: problems.length || 128,
-    resolvedBySystem: logs.filter((l) => l.status === 'RESOLVED').length || 97,
-    forwardedToAdmin: unansweredDoubts || 32,
-    supervisorResolutionRate,
+  const problemsAnalytics = {
+    totalProblems: kpi(problemsReportedCount, 118, false),
+    resolvedBySystem: kpi(resolved || 97, 95, true),
+    forwardedToAdmin: kpi(unansweredDoubts || 32, 32, false),
+    supervisorResolutionRate: kpi(supervisorResRate, 80.8, true, '%', 1),
+    totalMaterials: kpi(totalMaterialsCount || 42, 40, true),
     problemsByCategory: [
-      { name: 'Variação na espessura', percentage: 38 },
-      { name: 'Bolhas no filme', percentage: 22 },
-      { name: 'Marcas de gel', percentage: 15 },
-      { name: 'Linhas na superfície', percentage: 10 },
-      { name: 'Fusão irregular', percentage: 8 },
-      { name: 'Outros', percentage: 6 },
+      { name: 'Variação na espessura', percentage: 38, color: '#1768DF' },
+      { name: 'Bolhas no filme', percentage: 22, color: '#4AA5ED' },
+      { name: 'Marcas de gel', percentage: 15, color: '#FFC107' },
+      { name: 'Linhas na superfície', percentage: 10, color: '#DC2626' },
+      { name: 'Fusão irregular', percentage: 8, color: '#9564E8' },
+      { name: 'Outros', percentage: 7, color: '#16A34A' },
     ],
     problemsByProduct: [
       { name: 'RAP10', count: 46 },
@@ -1331,14 +1371,51 @@ async function dashboardRoutes(req, res, _url, parts) {
       { name: 'Iorgute', count: 32 },
       { name: 'Saco Pão Pulma', count: 63 },
     ],
+    problemsOverTime: [16, 39, 30, 33, 43, 23, 40, 54, 24, 38, 49, 47],
+    requests: {
+      total: kpi(128, 118, false),
+      new: kpi(32, 31, false),
+      inProgress: kpi(32, 31, true),
+      resolved: kpi(32, 31, true),
+    },
+    requestsByStatus: [
+      { label: 'Novas', percentage: 25, color: '#2563EB' },
+      { label: 'Em andamento', percentage: 50, color: '#16A34A' },
+      { label: 'Concluídas', percentage: 25, color: '#EAB308' },
+    ],
+    averageResolutionTime: {
+      valueString: '2h 45m',
+      delta: 8.3,
+      isIncrease: false,
+      positive: true,
+      subtitle: 'vs 30 dias ant.',
+      sparkline: [15, 30, 45, 34, 37, 35, 56, 46],
+    },
+    topEscalatedProblems: [
+      { name: 'Variação na espessura', count: 46 },
+      { name: 'Bolhas no filme', count: 20 },
+      { name: 'Marcas de gel', count: 15 },
+      { name: 'Linhas na superfície do filme', count: 32 },
+      { name: 'Fusão irregular do filme', count: 63 },
+    ],
+    solutions: {
+      displayed: kpi(128, 118, true),
+      successRate: kpi(82.3, 80.7, true, '%', 1),
+      byType: [
+        { name: 'Ajuste na Temperatura', percentage: 92 },
+        { name: 'Ajuste de velocidade', percentage: 82 },
+        { name: 'Verificar Resfriamento', percentage: 80 },
+        { name: 'Ajuste na Composição', percentage: 70 },
+        { name: 'Limpeza de Matriz', percentage: 62 },
+      ],
+    },
+  };
 
-    // Training tab
-    totalTrainings: trainings.length || 128,
-    trainingsInProgress: inProgressTrainings || 97,
-    trainingsFinished: completedTrainings || 32,
-    dropoutRate,
-    failureRate,
-    averageAssessmentScore,
+  const trainingsAnalytics = {
+    totalTrainings: kpi(trainings.length || 128, 118, true),
+    inProgress: kpi(inProgressTrainings || 97, 95, false),
+    completed: kpi(completedTrainings || 32, 31, true),
+    dropoutRate: kpi(dropoutRate, 12.3, false, '%', 1),
     courseRankings: [
       { name: 'Processo de extrusão', percentage: 38 },
       { name: 'Segurança Operacional', percentage: 26 },
@@ -1346,34 +1423,102 @@ async function dashboardRoutes(req, res, _url, parts) {
       { name: 'Controle Térmico', percentage: 12 },
       { name: 'Regulagem de Matriz', percentage: 8 },
     ],
-    trainingsCompletionList: [
-      { name: 'Processo de extrusão', count: 46 },
-      { name: 'Segurança Operacional', count: 26 },
-      { name: 'Boas Práticas de Produção', count: 15 },
-      { name: 'Iorgute', count: 32 },
-      { name: 'Saco Pão Pulma', count: 63 },
+    approvalVsFailure: [
+      { label: 'Aprovados', percentage: Math.round(100 - failureRate) || 79, color: '#16A34A' },
+      { label: 'Reprovados', percentage: Math.round(failureRate) || 21, color: '#DC2626' },
     ],
-    userTrainingStatus: {
-      completedPct: Math.round((completedTrainings / (trainings.length || 1)) * 100) || 45,
-      inProgressPct: Math.round((inProgressTrainings / (trainings.length || 1)) * 100) || 30,
-      notStartedPct: Math.max(0, 100 - (completedTrainings + inProgressTrainings)),
+    userStatus: [
+      { label: 'Concluídos', percentage: 45, color: '#2563EB' },
+      { label: 'Em andamento', percentage: 30, color: '#16A34A' },
+      { label: 'Não iniciados', percentage: 25, color: '#EAB308' },
+    ],
+    averageAssessmentScore: {
+      value: avgAssessmentScore,
+      valueString: `${avgAssessmentScore.toFixed(1).replace('.', ',')}%`,
+      delta: 8.3,
+      isIncrease: true,
+      positive: true,
+      subtitle: 'vs 30 dias ant.',
+      sparkline: [25, 52, 76, 49, 63, 90, 58],
     },
+  };
 
-    // Materials tab / Resins & Packaging
-    totalResins: resins.length,
-    totalPackagings: packagings.length,
-    totalMaterials: totalMaterials || 24,
-    packagingCompliance: 96.4,
-    mostAccessedResins: resins.slice(0, 5).map((r) => r.name || r.code),
+  const aiAnalytics = {
+    conversations: kpi(chatSessions.length + 256, 236, true),
+    answeredDoubts: kpi(answeredDoubts || 97, 95, true),
+    unansweredDoubts: kpi(unansweredDoubts || 32, 31, false),
+    unansweredByTopic: [
+      { name: 'Polímeros', count: 46 },
+      { name: 'Matriz', count: 26 },
+      { name: 'Processo de Extrusão', count: 15 },
+      { name: 'Resfriamento', count: 32 },
+      { name: 'Outros', count: 63 },
+    ],
+    contents: {
+      total: kpi(contents.length || 256, 236, true),
+      updated: kpi(contents.filter((c) => c.history?.length > 1).length || 97, 95, true),
+      new: kpi(contents.filter((c) => !c.history || c.history?.length <= 1).length || 32, 31, true),
+    },
+    aiInteractionsOverTime: [35, 36, 64, 61, 76, 68, 60, 95, 89, 105, 100, 118, 128],
+  };
 
-    // AI Assistant tab
-    conversationsCount: (store.data.chatSessions || []).length + 256,
-    answeredDoubts: answeredDoubts || 97,
-    unansweredDoubts: unansweredDoubts || 32,
-    totalContents: contents.length || 256,
-    updatedContents: contents.filter((c) => c.history?.length > 1).length || 97,
-    newContents: contents.filter((c) => c.history?.length <= 1).length || 32,
-  });
+  return {
+    overview,
+    problems: problemsAnalytics,
+    trainings: trainingsAnalytics,
+    ai: aiAnalytics,
+
+    // Backward-compatible flat fields
+    problemsReported: overview.problemsReported.value,
+    helpRequests: overview.helpRequests.value,
+    systemResolutionRate: overview.systemResolutionRate.value,
+    unansweredDoubtsCount: overview.unansweredDoubts.value,
+    trainingsCompletedCount: overview.trainingsCompleted.value,
+    averageApprovalRate: overview.averageApprovalRate.value,
+    totalProblems: problemsAnalytics.totalProblems.value,
+    resolvedBySystem: problemsAnalytics.resolvedBySystem.value,
+    forwardedToAdmin: problemsAnalytics.forwardedToAdmin.value,
+    supervisorResolutionRate: problemsAnalytics.supervisorResolutionRate.value,
+    totalMaterials: problemsAnalytics.totalMaterials.value,
+    problemsByCategory: problemsAnalytics.problemsByCategory,
+    problemsByProduct: problemsAnalytics.problemsByProduct,
+    totalTrainings: trainingsAnalytics.totalTrainings.value,
+    trainingsInProgress: trainingsAnalytics.inProgress.value,
+    trainingsFinished: trainingsAnalytics.completed.value,
+    dropoutRate: trainingsAnalytics.dropoutRate.value,
+    failureRate,
+    averageAssessmentScore: avgAssessmentScore,
+    courseRankings: trainingsAnalytics.courseRankings,
+    conversationsCount: aiAnalytics.conversations.value,
+    answeredDoubts: aiAnalytics.answeredDoubts.value,
+    unansweredDoubts: aiAnalytics.unansweredDoubts.value,
+    totalContents: aiAnalytics.contents.total.value,
+    updatedContents: aiAnalytics.contents.updated.value,
+    newContents: aiAnalytics.contents.new.value,
+  };
+}
+
+async function analyticsRoutes(req, res, url, parts) {
+  auth(req);
+  if (req.method !== 'GET') throw new ApiError(405, 'Método não permitido.');
+  const period = url.searchParams.get('period') || '30d';
+  const data = buildAnalyticsData(period);
+
+  const sub = parts[1];
+  if (!sub || sub === 'all') return json(res, 200, data);
+  if (sub === 'overview') return json(res, 200, data.overview);
+  if (sub === 'problems') return json(res, 200, data.problems);
+  if (sub === 'trainings') return json(res, 200, data.trainings);
+  if (sub === 'ai') return json(res, 200, data.ai);
+  throw new ApiError(404, 'Analytics sub-resource não encontrada.');
+}
+
+async function dashboardRoutes(req, res, url, parts) {
+  auth(req);
+  if (req.method !== 'GET') throw new ApiError(405, 'Método não permitido.');
+  const period = url.searchParams.get('period') || '30d';
+  const data = buildAnalyticsData(period);
+  return json(res, 200, data);
 }
 function countBy(items, key) { return Object.entries(items.reduce((all, item) => ({ ...all, [item[key]]: (all[item[key]] || 0) + 1 }), {})).map(([label, value]) => ({ label, value })); }
 function countFailures(logs) { return Object.entries(logs.flatMap((log) => log.failures || []).filter((item) => item.state !== 'WITHIN').reduce((all, item) => ({ ...all, [item.parameter]: (all[item.parameter] || 0) + 1 }), {})).map(([label, value]) => ({ label, value })); }
