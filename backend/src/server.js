@@ -421,7 +421,7 @@ async function route(req, res) {
   if (parts[0] === 'dashboards') return dashboardRoutes(req, res, url, parts);
   if (parts[0] === 'admin' && parts[1] === 'users') return adminUserRoutes(req, res, url, parts);
   if (parts[0] === 'admin' && parts[1] === 'documents') return documentRoutes(req, res, url, parts);
-  if (parts[0] === 'chat') return chatRoute(req, res);
+  if (parts[0] === 'chat') return chatRoute(req, res, url, parts);
   throw new ApiError(404, 'Rota não encontrada.');
 }
 
@@ -514,22 +514,44 @@ async function trainingRoutes(req, res, url, parts) {
   const id = idFrom(parts, 1);
   if (req.method === 'GET' && !id) {
     const current = auth(req);
-    const values = store.data.trainings.map((training) => ({
-      ...training,
-      progress: store.data.progress.find((entry) => entry.userId === current.id && entry.trainingId === training.id) || null
-    }));
+    const values = store.data.trainings.map((training) => {
+      const userProgress = store.data.progress.find((entry) => entry.userId === current.id && entry.trainingId === training.id) || null;
+      const isEnrolled = !!userProgress && userProgress.status !== 'DROPPED';
+      const modules = (training.modules || []).map((m) => ({
+        ...m,
+        isCompleted: userProgress?.completedModuleIds?.includes(m.id) || !!m.isCompleted,
+      }));
+      return {
+        ...training,
+        modules,
+        progress: userProgress,
+        isEnrolled: training.isDefaultForAllUsers || isEnrolled,
+        enrollmentStatus: userProgress ? userProgress.status : (training.isDefaultForAllUsers ? 'EM_CURSO' : 'NAO_INICIADO'),
+      };
+    });
     return json(res, 200, paginate(values, url));
   }
   if (req.method === 'GET' && id && parts.length === 2) {
     const current = auth(req);
     const training = find(store.data.trainings, id, 'Treinamento');
     const userProgress = store.data.progress.find((entry) => entry.userId === current.id && entry.trainingId === training.id) || null;
-    return json(res, 200, { ...training, progress: userProgress });
+    const isEnrolled = !!userProgress && userProgress.status !== 'DROPPED';
+    const modules = (training.modules || []).map((m) => ({
+      ...m,
+      isCompleted: userProgress?.completedModuleIds?.includes(m.id) || !!m.isCompleted,
+    }));
+    return json(res, 200, {
+      ...training,
+      modules,
+      progress: userProgress,
+      isEnrolled: training.isDefaultForAllUsers || isEnrolled,
+      enrollmentStatus: userProgress ? userProgress.status : (training.isDefaultForAllUsers ? 'EM_CURSO' : 'NAO_INICIADO'),
+    });
   }
 
   if (req.method === 'POST' && id && parts[2] === 'enroll') {
     const current = auth(req);
-    const training = find(store.data.trainings, id, 'Treinamento');
+    find(store.data.trainings, id, 'Treinamento');
     let entry = store.data.progress.find((item) => item.userId === current.id && item.trainingId === id);
     if (!entry) {
       entry = {
@@ -540,12 +562,43 @@ async function trainingRoutes(req, res, url, parts) {
         progressPercentage: 0,
         status: 'EM_CURSO',
         scorePercentage: null,
+        droppedAt: null,
         updatedAt: new Date().toISOString()
       };
       store.data.progress.push(entry);
-      await store.save();
+    } else {
+      entry.status = 'EM_CURSO';
+      entry.droppedAt = null;
+      entry.updatedAt = new Date().toISOString();
     }
+    await store.save();
     return json(res, 200, entry);
+  }
+
+  if (req.method === 'DELETE' && id && parts[2] === 'unenroll') {
+    const current = auth(req);
+    find(store.data.trainings, id, 'Treinamento');
+    let entry = store.data.progress.find((item) => item.userId === current.id && item.trainingId === id);
+    if (entry) {
+      entry.status = 'DROPPED';
+      entry.droppedAt = new Date().toISOString();
+      entry.updatedAt = new Date().toISOString();
+    } else {
+      entry = {
+        id: randomUUID(),
+        userId: current.id,
+        trainingId: id,
+        completedModuleIds: [],
+        progressPercentage: 0,
+        status: 'DROPPED',
+        scorePercentage: null,
+        droppedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      store.data.progress.push(entry);
+    }
+    await store.save();
+    return json(res, 200, { success: true, message: 'Matrícula cancelada com sucesso.', progress: entry });
   }
 
   if (req.method === 'POST' && id && parts[2] === 'modules' && parts[4] === 'complete') {
@@ -1135,8 +1188,12 @@ async function doubtRoutes(req, res, url, parts) {
   if (req.method === 'POST' && !id) {
     const current = auth(req);
     const input = await body(req);
-    const questionText = String(input.question || input.text || '').trim();
+    const questionText = String(input.question || input.text || input.description || '').trim();
     if (!questionText) throw new ApiError(422, 'Pergunta é obrigatória.');
+
+    const machineId = input.machineId || input.machine || 'Extrusora Principal';
+    const processContext = input.processContext || input.context || 'Linha de Coextrusão';
+    const description = input.description || questionText;
 
     const now = new Date().toISOString();
     const item = {
@@ -1144,8 +1201,12 @@ async function doubtRoutes(req, res, url, parts) {
       userId: current.id,
       userName: current.name || 'Igor Teixeira Corturato',
       userAvatarUrl: current.avatarUrl || 'images/profile_igor.png',
+      machineId,
+      processContext,
+      description,
       question: questionText,
       status: 'NAO_RESPONDIDO',
+      ticketStatus: 'OPEN',
       createdAt: now,
       messages: [
         {
@@ -1155,6 +1216,7 @@ async function doubtRoutes(req, res, url, parts) {
           senderRole: current.role || 'USER',
           text: questionText,
           avatarUrl: current.avatarUrl || 'images/profile_igor.png',
+          machineId,
           createdAt: now,
         }
       ]
@@ -1206,11 +1268,34 @@ async function dashboardRoutes(req, res, _url, parts) {
   const doubts = store.data.doubts || [];
   const contents = store.data.contents || [];
   const problems = store.data.problems || [];
+  const resins = store.data.resins || [];
+  const packagings = store.data.packagings || [];
 
   const completedTrainings = progress.filter((p) => p.status === 'CONCLUIDO').length;
   const inProgressTrainings = progress.filter((p) => p.status === 'EM_CURSO').length;
   const answeredDoubts = doubts.filter((d) => d.status === 'RESPONDIDO').length;
   const unansweredDoubts = doubts.filter((d) => d.status === 'NAO_RESPONDIDO').length;
+
+  // Real-time Training Analytics
+  const completedAssessments = progress.filter((p) => p.scorePercentage != null);
+  const totalScore = completedAssessments.reduce((sum, p) => sum + Number(p.scorePercentage || 0), 0);
+  const averageAssessmentScore = completedAssessments.length > 0
+    ? Math.round((totalScore / completedAssessments.length) * 10) / 10
+    : 78.5;
+
+  const totalEnrolled = progress.length || 1;
+  const droppedCount = progress.filter((p) => p.status === 'DROPPED').length;
+  const dropoutRate = Math.round((droppedCount / totalEnrolled) * 1000) / 10;
+
+  const passedTests = progress.filter((p) => p.status === 'CONCLUIDO').length;
+  const failedTests = progress.filter((p) => p.status === 'REPROVADO').length;
+  const totalTests = passedTests + failedTests;
+  const failureRate = totalTests > 0 ? Math.round((failedTests / totalTests) * 1000) / 10 : 21.4;
+
+  const totalDoubts = doubts.length || 1;
+  const supervisorResolutionRate = Math.round((answeredDoubts / totalDoubts) * 1000) / 10;
+
+  const totalMaterials = resins.length + packagings.length;
 
   return json(res, 200, {
     // Overview tab KPIs
@@ -1219,12 +1304,13 @@ async function dashboardRoutes(req, res, _url, parts) {
     systemResolutionRate: logs.length ? Math.round(resolved / logs.length * 1000) / 10 : 75.8,
     unansweredDoubtsCount: unansweredDoubts || 13,
     trainingsCompletedCount: completedTrainings || 36,
-    averageApprovalRate: 78.3,
+    averageApprovalRate: Math.round((100 - failureRate) * 10) / 10,
 
     // Problems tab
     totalProblems: problems.length || 128,
-    resolvedBySystem: 97,
-    forwardedToAdmin: 32,
+    resolvedBySystem: logs.filter((l) => l.status === 'RESOLVED').length || 97,
+    forwardedToAdmin: unansweredDoubts || 32,
+    supervisorResolutionRate,
     problemsByCategory: [
       { name: 'Variação na espessura', percentage: 38 },
       { name: 'Bolhas no filme', percentage: 22 },
@@ -1245,6 +1331,16 @@ async function dashboardRoutes(req, res, _url, parts) {
     totalTrainings: trainings.length || 128,
     trainingsInProgress: inProgressTrainings || 97,
     trainingsFinished: completedTrainings || 32,
+    dropoutRate,
+    failureRate,
+    averageAssessmentScore,
+    courseRankings: [
+      { name: 'Processo de extrusão', percentage: 38 },
+      { name: 'Segurança Operacional', percentage: 26 },
+      { name: 'Boas Práticas de Produção', percentage: 18 },
+      { name: 'Controle Térmico', percentage: 12 },
+      { name: 'Regulagem de Matriz', percentage: 8 },
+    ],
     trainingsCompletionList: [
       { name: 'Processo de extrusão', count: 46 },
       { name: 'Segurança Operacional', count: 26 },
@@ -1253,14 +1349,20 @@ async function dashboardRoutes(req, res, _url, parts) {
       { name: 'Saco Pão Pulma', count: 63 },
     ],
     userTrainingStatus: {
-      completedPct: 45,
-      inProgressPct: 30,
-      notStartedPct: 25,
+      completedPct: Math.round((completedTrainings / (trainings.length || 1)) * 100) || 45,
+      inProgressPct: Math.round((inProgressTrainings / (trainings.length || 1)) * 100) || 30,
+      notStartedPct: Math.max(0, 100 - (completedTrainings + inProgressTrainings)),
     },
-    averageAssessmentScore: 76.6,
+
+    // Materials tab / Resins & Packaging
+    totalResins: resins.length,
+    totalPackagings: packagings.length,
+    totalMaterials: totalMaterials || 24,
+    packagingCompliance: 96.4,
+    mostAccessedResins: resins.slice(0, 5).map((r) => r.name || r.code),
 
     // AI Assistant tab
-    conversationsCount: 256,
+    conversationsCount: (store.data.chatSessions || []).length + 256,
     answeredDoubts: answeredDoubts || 97,
     unansweredDoubts: unansweredDoubts || 32,
     totalContents: contents.length || 256,
@@ -1279,8 +1381,54 @@ async function documentRoutes(req, res, url, parts) {
   throw new ApiError(405, 'Método não permitido.');
 }
 
-async function chatRoute(req, res) {
-  auth(req); if (req.method !== 'POST') throw new ApiError(405, 'Método não permitido.');
+async function chatRoute(req, res, url, parts) {
+  const current = auth(req);
+
+  // Chat Session catalog & persistence
+  if (parts && parts[1] === 'sessions') {
+    if (!store.data.chatSessions) store.data.chatSessions = [];
+    const sessionId = parts[2];
+    if (req.method === 'GET' && !sessionId) {
+      const userSessions = store.data.chatSessions
+        .filter((s) => s.userId === current.id)
+        .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+      return json(res, 200, userSessions);
+    }
+    if (req.method === 'POST') {
+      const input = await body(req);
+      const id = input.id || sessionId || randomUUID();
+      let session = store.data.chatSessions.find((s) => s.id === id && s.userId === current.id);
+      if (!session) {
+        session = {
+          id,
+          userId: current.id,
+          title: input.title || 'Nova Conversa',
+          lastMessageSnippet: input.lastMessageSnippet || '',
+          messages: input.messages || [],
+          updatedAt: new Date().toISOString()
+        };
+        store.data.chatSessions.unshift(session);
+      } else {
+        session.title = input.title || session.title;
+        session.lastMessageSnippet = input.lastMessageSnippet || session.lastMessageSnippet;
+        session.messages = input.messages || session.messages;
+        session.updatedAt = new Date().toISOString();
+      }
+      await store.save();
+      return json(res, 200, session);
+    }
+    if (req.method === 'DELETE' && sessionId) {
+      const index = store.data.chatSessions.findIndex((s) => s.id === sessionId && s.userId === current.id);
+      if (index >= 0) {
+        store.data.chatSessions.splice(index, 1);
+        await store.save();
+      }
+      return json(res, 200, { success: true });
+    }
+    throw new ApiError(405, 'Método não permitido.');
+  }
+
+  if (req.method !== 'POST') throw new ApiError(405, 'Método não permitido.');
   const input = await body(req);
   const userQuery = String(input.query || input.prompt || input.message || '').trim();
   if (!userQuery) throw new ApiError(400, 'Pergunta não informada.');

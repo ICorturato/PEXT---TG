@@ -44,7 +44,6 @@ void main() {
 
     testWidgets('Course progress card displays "VER TESTE" button when all modules are completed',
         (tester) async {
-      bool assessmentTapped = false;
       final completedTraining = TrainingModel(
         id: 't_comp',
         title: 'Curso Completo',

@@ -127,6 +127,7 @@ class _TroubleshootingListScreenState extends State<TroubleshootingListScreen> {
 
   Future<void> _openSupportEscalation(BuildContext context) async {
     final textController = TextEditingController();
+    String selectedMachine = 'Extrusora Principal';
     bool sending = false;
 
     await showModalBottomSheet<void>(
@@ -180,6 +181,31 @@ class _TroubleshootingListScreenState extends State<TroubleshootingListScreen> {
                 style: TextStyle(color: Color(0xFF6B7280), fontSize: 12),
               ),
               const SizedBox(height: 14),
+              DropdownButtonFormField<String>(
+                value: selectedMachine,
+                decoration: InputDecoration(
+                  labelText: 'Máquina / Equipamento',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: _border),
+                  ),
+                  filled: true,
+                  fillColor: _canvas,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                ),
+                items: const [
+                  DropdownMenuItem(value: 'Extrusora Principal', child: Text('Extrusora Principal')),
+                  DropdownMenuItem(value: 'Extrusora Balão 01', child: Text('Extrusora Balão 01')),
+                  DropdownMenuItem(value: 'Linha de Coextrusão 02', child: Text('Linha de Coextrusão 02')),
+                  DropdownMenuItem(value: 'Misturador / Silo 03', child: Text('Misturador / Silo 03')),
+                ],
+                onChanged: (val) {
+                  if (val != null) {
+                    setModalState(() => selectedMachine = val);
+                  }
+                },
+              ),
+              const SizedBox(height: 12),
               TextField(
                 controller: textController,
                 maxLines: 4,
@@ -210,15 +236,16 @@ class _TroubleshootingListScreenState extends State<TroubleshootingListScreen> {
                         if (question.isEmpty) return;
                         setModalState(() => sending = true);
                         try {
-                          final payload = await ApiClient.instance.postRaw(
-                            '/doubts',
-                            {'question': question},
+                          final payload = await ApiClient.instance.createSupportTicket(
+                            description: question,
+                            machineId: selectedMachine,
+                            processContext: 'Linha de Coextrusão',
                           );
                           if (ctx.mounted) Navigator.pop(ctx);
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
-                                content: Text('Dúvida encaminhada ao supervisor com sucesso!'),
+                                content: Text('Chamado encaminhado ao supervisor com sucesso!'),
                                 backgroundColor: Color(0xFF22C55E),
                               ),
                             );

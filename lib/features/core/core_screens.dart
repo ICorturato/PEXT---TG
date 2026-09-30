@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:video_player/video_player.dart';
 import '../../app_routes.dart';
 import '../../models/app_category.dart';
 import '../../models/content_model.dart';
@@ -1023,7 +1025,9 @@ class _TrainingDetailScreenState extends State<TrainingDetailScreen> {
     } else if (widget.record != null) {
       _training = TrainingModel.fromJson(widget.record!.data);
     }
-    _isEnrolled = _training?.isEnrolled ?? widget.completed;
+    final bool isDropped = _training?.enrollmentStatus == 'DROPPED';
+    final bool isDefault = _training?.isDefaultForAllUsers ?? true;
+    _isEnrolled = !isDropped && (widget.completed || (_training?.isEnrolled ?? false) || isDefault);
     _modules = _training?.modules.isNotEmpty == true
         ? List<TrainingModule>.from(_training!.modules)
         : [
@@ -1050,6 +1054,7 @@ class _TrainingDetailScreenState extends State<TrainingDetailScreen> {
             ),
           ];
     _checkFavorite();
+    _reloadTraining();
   }
 
   Future<void> _checkFavorite() async {
@@ -1112,32 +1117,85 @@ class _TrainingDetailScreenState extends State<TrainingDetailScreen> {
     }
   }
 
+  Future<void> _unenroll() async {
+    if (_training == null) return;
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Cancelar Matrícula',
+            style: TextStyle(color: _blue, fontWeight: FontWeight.bold)),
+        content: Text(
+            'Deseja realmente cancelar sua matrícula em "${_training!.title}"? Seu progresso será preservado para caso retome futuramente.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Voltar'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: const Color(0xFFD93838)),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Cancelar Matrícula'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+
+    setState(() => _enrolling = true);
+    try {
+      await ApiClient.instance.unenrollTraining(_training!.id);
+      if (mounted) {
+        setState(() {
+          _isEnrolled = false;
+          _training = _training!.copyWith(isEnrolled: false, enrollmentStatus: 'DROPPED');
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Matrícula cancelada com sucesso.'),
+            backgroundColor: Color(0xFF6B7280),
+          ),
+        );
+        _reloadTraining();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao cancelar matrícula: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _enrolling = false);
+    }
+  }
+
   Future<void> _reloadTraining() async {
     if (_training == null) return;
     try {
       final data = await ApiClient.instance.getTrainingDetail(_training!.id);
       if (!mounted) return;
       final updated = TrainingModel.fromJson(data);
+      final bool isDropped = updated.enrollmentStatus == 'DROPPED';
+      final bool isDefault = updated.isDefaultForAllUsers;
       setState(() {
         _training = updated;
         if (updated.modules.isNotEmpty) {
           _modules = List<TrainingModule>.from(updated.modules);
         }
-        if (updated.isEnrolled) {
-          _isEnrolled = true;
-        }
+        _isEnrolled = !isDropped && (widget.completed || updated.isEnrolled || isDefault);
       });
     } catch (_) {
-      await TrainingService.instance.fetchTrainings();
       final found = TrainingService.instance.trainings
           .where((t) => t.id == _training!.id)
           .firstOrNull;
       if (found != null && mounted) {
+        final bool isDropped = found.enrollmentStatus == 'DROPPED';
+        final bool isDefault = found.isDefaultForAllUsers;
         setState(() {
           _training = found;
           if (found.modules.isNotEmpty) {
             _modules = List<TrainingModule>.from(found.modules);
           }
+          _isEnrolled = !isDropped && (widget.completed || found.isEnrolled || isDefault);
         });
       }
     }
@@ -1202,7 +1260,8 @@ class _TrainingDetailScreenState extends State<TrainingDetailScreen> {
         : 'Detalhes do Treinamento';
 
     final isOptional = !(_training?.isDefaultForAllUsers ?? true);
-    final needsEnrollment = !widget.admin && isOptional && !_isEnrolled;
+    final isDropped = _training?.enrollmentStatus == 'DROPPED';
+    final needsEnrollment = !widget.admin && (isOptional || isDropped) && !_isEnrolled;
 
     return _Shell(
       title: title,
@@ -1242,8 +1301,8 @@ class _TrainingDetailScreenState extends State<TrainingDetailScreen> {
             _OptionalCourseBanner(
               onEnroll: _enroll,
               enrolling: _enrolling,
-            ),
-          if (!widget.admin)
+            )
+          else if (!widget.admin)
             _CourseProgressCard(
               training: _training ??
                   TrainingModel(
@@ -1260,6 +1319,7 @@ class _TrainingDetailScreenState extends State<TrainingDetailScreen> {
                   ),
                 ).then((_) => _reloadTraining());
               },
+              onUnenroll: _unenroll,
             ),
           if (!widget.admin) const SizedBox(height: 18),
           Row(
@@ -1329,7 +1389,7 @@ class _TrainingDetailScreenState extends State<TrainingDetailScreen> {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text(needsEnrollment
-                            ? 'Clique em "INICIAR TREINAMENTO" para liberar o acesso às aulas.'
+                            ? 'Clique em "Matricular-se" para liberar o acesso às aulas.'
                             : 'Complete o módulo anterior para desbloquear este módulo.'),
                         backgroundColor: const Color(0xFFF59E0B),
                         duration: const Duration(seconds: 2),
@@ -1405,7 +1465,7 @@ class _OptionalCourseBanner extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Treinamento Opcional',
+                      'Matrícula no Treinamento',
                       style: TextStyle(
                         color: _blue,
                         fontWeight: FontWeight.bold,
@@ -1414,7 +1474,7 @@ class _OptionalCourseBanner extends StatelessWidget {
                     ),
                     SizedBox(height: 2),
                     Text(
-                      'Este curso é opcional. Inicie o treinamento para ter acesso ao conteúdo.',
+                      'Matricule-se para ter acesso às aulas, materiais e avaliações deste treinamento.',
                       style: TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
                     ),
                   ],
@@ -1440,9 +1500,9 @@ class _OptionalCourseBanner extends StatelessWidget {
                       height: 16,
                       child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                     )
-                  : const Icon(Icons.play_arrow_rounded, size: 20),
+                  : const Icon(Icons.school, size: 20),
               label: Text(
-                enrolling ? 'Iniciando...' : 'INICIAR TREINAMENTO',
+                enrolling ? 'Matriculando...' : 'Matricular-se',
                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
               ),
             ),
@@ -1456,8 +1516,13 @@ class _OptionalCourseBanner extends StatelessWidget {
 class _CourseProgressCard extends StatelessWidget {
   final TrainingModel training;
   final VoidCallback? onTakeAssessment;
+  final VoidCallback? onUnenroll;
 
-  const _CourseProgressCard({required this.training, this.onTakeAssessment});
+  const _CourseProgressCard({
+    required this.training,
+    this.onTakeAssessment,
+    this.onUnenroll,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1621,10 +1686,33 @@ class _CourseProgressCard extends StatelessWidget {
             ),
           ),
         ],
+        if (onUnenroll != null) ...[
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFFD93838),
+                side: const BorderSide(color: Color(0xFFD93838)),
+                minimumSize: const Size(0, 40),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              onPressed: onUnenroll,
+              icon: const Icon(Icons.cancel_outlined, size: 18),
+              label: const Text(
+                'Cancelar Matrícula',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              ),
+            ),
+          ),
+        ],
       ]),
     );
   }
 }
+
 
 class _CourseMetric extends StatelessWidget {
   final IconData icon;
@@ -1812,6 +1900,285 @@ class _CourseModuleCard extends StatelessWidget {
                             ),
                           ),
                         ))),
+        ),
+      ),
+    );
+  }
+}
+
+class _LessonVideoPlayer extends StatefulWidget {
+  final String? videoUrl;
+  final String fallbackAsset;
+
+  const _LessonVideoPlayer({
+    this.videoUrl,
+    this.fallbackAsset = 'images/training_extrusion.png',
+  });
+
+  @override
+  State<_LessonVideoPlayer> createState() => _LessonVideoPlayerState();
+}
+
+class _LessonVideoPlayerState extends State<_LessonVideoPlayer> {
+  VideoPlayerController? _controller;
+  bool _isInitialized = false;
+  bool _hasError = false;
+  bool _showControls = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _initVideo();
+  }
+
+  void _initVideo() async {
+    final url = widget.videoUrl;
+    try {
+      if (url != null && (url.startsWith('http://') || url.startsWith('https://'))) {
+        _controller = VideoPlayerController.networkUrl(Uri.parse(url));
+      } else {
+        _controller = VideoPlayerController.networkUrl(Uri.parse(
+          'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+        ));
+      }
+
+      await _controller!.initialize();
+      _controller!.addListener(_onControllerUpdate);
+      if (mounted) {
+        setState(() {
+          _isInitialized = true;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error initializing video player: $e');
+      if (mounted) {
+        setState(() {
+          _hasError = true;
+        });
+      }
+    }
+  }
+
+  void _onControllerUpdate() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    _controller?.removeListener(_onControllerUpdate);
+    _controller?.dispose();
+    super.dispose();
+  }
+
+  String _formatDuration(Duration d) {
+    final minutes = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final seconds = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '$minutes:$seconds';
+  }
+
+  void _togglePlayPause() {
+    if (_controller == null || !_isInitialized) return;
+    setState(() {
+      if (_controller!.value.isPlaying) {
+        _controller!.pause();
+      } else {
+        _controller!.play();
+      }
+    });
+  }
+
+  void _openFullscreen() {
+    if (_controller == null || !_isInitialized) return;
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => Scaffold(
+          backgroundColor: Colors.black,
+          body: SafeArea(
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Center(
+                  child: AspectRatio(
+                    aspectRatio: _controller!.value.aspectRatio,
+                    child: VideoPlayer(_controller!),
+                  ),
+                ),
+                Positioned(
+                  top: 16,
+                  left: 16,
+                  child: IconButton(
+                    icon: const Icon(Icons.arrow_back, color: Colors.white, size: 28),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ),
+                Positioned(
+                  bottom: 20,
+                  left: 20,
+                  right: 20,
+                  child: Column(
+                    children: [
+                      VideoProgressIndicator(
+                        _controller!,
+                        allowScrubbing: true,
+                        colors: const VideoProgressColors(
+                          playedColor: _blue,
+                          bufferedColor: Colors.white54,
+                          backgroundColor: Colors.white24,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          IconButton(
+                            icon: Icon(
+                              _controller!.value.isPlaying ? Icons.pause : Icons.play_arrow,
+                              color: Colors.white,
+                              size: 28,
+                            ),
+                            onPressed: _togglePlayPause,
+                          ),
+                          Text(
+                            '${_formatDuration(_controller!.value.position)} / ${_formatDuration(_controller!.value.duration)}',
+                            style: const TextStyle(color: Colors.white, fontSize: 13),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.fullscreen_exit, color: Colors.white, size: 28),
+                            onPressed: () => Navigator.pop(context),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_hasError || !_isInitialized || _controller == null) {
+      return Stack(
+        alignment: Alignment.center,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Image.asset(
+              widget.fallbackAsset,
+              height: 180,
+              width: double.infinity,
+              fit: BoxFit.cover,
+            ),
+          ),
+          InkWell(
+            onTap: _initVideo,
+            child: Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.4),
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 2),
+              ),
+              child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 36),
+            ),
+          ),
+        ],
+      );
+    }
+
+    final duration = _controller!.value.duration;
+    final position = _controller!.value.position;
+    final isPlaying = _controller!.value.isPlaying;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.black,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: AspectRatio(
+        aspectRatio: _controller!.value.aspectRatio > 0 ? _controller!.value.aspectRatio : 16 / 9,
+        child: Stack(
+          alignment: Alignment.bottomCenter,
+          children: [
+            GestureDetector(
+              onTap: () {
+                setState(() => _showControls = !_showControls);
+              },
+              child: VideoPlayer(_controller!),
+            ),
+            if (_showControls || !isPlaying)
+              Container(
+                color: Colors.black.withOpacity(0.35),
+                child: Center(
+                  child: IconButton(
+                    iconSize: 52,
+                    icon: Icon(
+                      isPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled,
+                      color: Colors.white,
+                    ),
+                    onPressed: _togglePlayPause,
+                  ),
+                ),
+              ),
+            if (_showControls || !isPlaying)
+              Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Colors.transparent, Colors.black87],
+                  ),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    VideoProgressIndicator(
+                      _controller!,
+                      allowScrubbing: true,
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      colors: const VideoProgressColors(
+                        playedColor: Color(0xFF2563EB),
+                        bufferedColor: Colors.white38,
+                        backgroundColor: Colors.white24,
+                      ),
+                    ),
+                    Row(
+                      children: [
+                        IconButton(
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          icon: Icon(
+                            isPlaying ? Icons.pause : Icons.play_arrow,
+                            color: Colors.white,
+                            size: 22,
+                          ),
+                          onPressed: _togglePlayPause,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '${_formatDuration(position)} / ${_formatDuration(duration)}',
+                          style: const TextStyle(color: Colors.white, fontSize: 11),
+                        ),
+                        const Spacer(),
+                        IconButton(
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          icon: const Icon(Icons.fullscreen, color: Colors.white, size: 22),
+                          onPressed: _openFullscreen,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+          ],
         ),
       ),
     );
@@ -2027,31 +2394,10 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
             ),
           ),
           const SizedBox(height: 14),
-          Stack(alignment: Alignment.center, children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: Image.asset(
-                'images/training_extrusion.png',
-                height: 160,
-                width: double.infinity,
-                fit: BoxFit.cover,
-              ),
-            ),
-            Container(
-              width: 54,
-              height: 54,
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.3),
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.white, width: 2),
-              ),
-              child: const Icon(
-                Icons.play_arrow_rounded,
-                color: Colors.white,
-                size: 36,
-              ),
-            ),
-          ]),
+          _LessonVideoPlayer(
+            videoUrl: videoList.isNotEmpty ? videoList.first.urlOrPath : null,
+            fallbackAsset: 'images/training_extrusion.png',
+          ),
           const SizedBox(height: 16),
           const Text(
             'Sobre esta aula',
@@ -4544,7 +4890,14 @@ class ChatAssistantScreen extends StatefulWidget {
 
 class _ChatAssistantScreenState extends State<ChatAssistantScreen> {
   int _tab = 0;
+  int _userTab = 0;
   final _chatKey = GlobalKey<_AssistantChatTabState>();
+
+  @override
+  void initState() {
+    super.initState();
+    ChatService.instance.fetchSessions();
+  }
 
   Future<void> _confirmClearChat(BuildContext context) async {
     final confirm = await showDialog<bool>(
@@ -4576,13 +4929,82 @@ class _ChatAssistantScreenState extends State<ChatAssistantScreen> {
   Widget build(BuildContext context) {
     if (!widget.admin) {
       return _Shell(
-          title: 'Assistente IA',
-          admin: false,
-          action: _BoxedHeaderAction(
-            icon: Icons.delete_sweep_outlined,
-            onTap: () => _confirmClearChat(context),
-          ),
-          child: _AssistantChatTab(key: _chatKey, isAdmin: false));
+        title: 'Assistente IA',
+        admin: false,
+        action: _userTab == 0
+            ? Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _BoxedHeaderAction(
+                    icon: Icons.add_comment_outlined,
+                    onTap: () {
+                      _chatKey.currentState?.startNewSession();
+                    },
+                  ),
+                  _BoxedHeaderAction(
+                    icon: Icons.delete_sweep_outlined,
+                    onTap: () => _confirmClearChat(context),
+                  ),
+                ],
+              )
+            : _BoxedHeaderAction(
+                icon: Icons.delete_sweep_outlined,
+                onTap: () async {
+                  final confirm = await showDialog<bool>(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: const Text('Limpar histórico',
+                          style: TextStyle(color: _blue, fontWeight: FontWeight.bold)),
+                      content:
+                          const Text('Deseja excluir todo o histórico de conversas?'),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx, false),
+                          child: const Text('Cancelar'),
+                        ),
+                        FilledButton(
+                          style: FilledButton.styleFrom(
+                              backgroundColor: const Color(0xFFD93838)),
+                          onPressed: () => Navigator.pop(ctx, true),
+                          child: const Text('Excluir tudo'),
+                        ),
+                      ],
+                    ),
+                  );
+                  if (confirm == true) {
+                    await ChatService.instance.clearAllSessions();
+                  }
+                },
+              ),
+        child: Column(
+          children: [
+            _TabBar(
+              labels: const ['Chat', 'Histórico'],
+              value: _userTab,
+              onChanged: (value) => setState(() => _userTab = value),
+            ),
+            const SizedBox(height: 14),
+            Expanded(
+              child: IndexedStack(
+                index: _userTab,
+                children: [
+                  _AssistantChatTab(key: _chatKey, isAdmin: false),
+                  _UserChatHistoryTab(
+                    onSelectSession: (session) {
+                      _chatKey.currentState?.loadSession(session);
+                      setState(() => _userTab = 0);
+                    },
+                    onNewChat: () {
+                      _chatKey.currentState?.startNewSession();
+                      setState(() => _userTab = 0);
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
     }
 
     return _Shell(
@@ -4611,6 +5033,205 @@ class _ChatAssistantScreenState extends State<ChatAssistantScreen> {
             const _ConteudoTabView(),
           ]))
         ]));
+  }
+}
+
+class _UserChatHistoryTab extends StatelessWidget {
+  final ValueChanged<ChatSession> onSelectSession;
+  final VoidCallback onNewChat;
+
+  const _UserChatHistoryTab({
+    required this.onSelectSession,
+    required this.onNewChat,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: ChatService.instance,
+      builder: (context, _) {
+        final sessions = ChatService.instance.sessions;
+        if (sessions.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 64,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    color: _blue.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.forum_outlined, color: _blue, size: 32),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Nenhum histórico disponível',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: _blue,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Suas conversas com o assistente IA aparecerão aqui.',
+                  style: TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 18),
+                FilledButton.icon(
+                  style: FilledButton.styleFrom(backgroundColor: _blue),
+                  onPressed: onNewChat,
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('Iniciar nova conversa'),
+                ),
+              ],
+            ),
+          );
+        }
+
+        return Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: _blue,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape:
+                        RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  onPressed: onNewChat,
+                  icon: const Icon(Icons.add_comment_outlined, size: 18),
+                  label: const Text(
+                    'NOVA CONVERSA',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                ),
+              ),
+            ),
+            Expanded(
+              child: ListView.separated(
+                itemCount: sessions.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 10),
+                itemBuilder: (context, index) {
+                  final session = sessions[index];
+                  final formattedDate =
+                      '${session.updatedAt.day.toString().padLeft(2, '0')}/${session.updatedAt.month.toString().padLeft(2, '0')}/${session.updatedAt.year} ${session.updatedAt.hour.toString().padLeft(2, '0')}:${session.updatedAt.minute.toString().padLeft(2, '0')}';
+
+                  return InkWell(
+                    borderRadius: BorderRadius.circular(12),
+                    onTap: () => onSelectSession(session),
+                    child: Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: _card(),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 42,
+                            height: 42,
+                            decoration: BoxDecoration(
+                              color: _blue.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(Icons.chat_bubble_outline,
+                                color: _blue, size: 22),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        session.title,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 14,
+                                          color: _blue,
+                                        ),
+                                      ),
+                                    ),
+                                    Text(
+                                      formattedDate,
+                                      style: const TextStyle(
+                                        fontSize: 10,
+                                        color: Color(0xFF9CA3AF),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  session.lastMessageSnippet.isNotEmpty
+                                      ? session.lastMessageSnippet
+                                      : '${session.messages.length} mensagens',
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Color(0xFF4B5563),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          IconButton(
+                            icon: const Icon(Icons.delete_outline,
+                                color: Color(0xFF9CA3AF), size: 20),
+                            onPressed: () async {
+                              final confirm = await showDialog<bool>(
+                                context: context,
+                                builder: (ctx) => AlertDialog(
+                                  title: const Text('Excluir conversa',
+                                      style: TextStyle(
+                                          color: _blue,
+                                          fontWeight: FontWeight.bold)),
+                                  content:
+                                      Text('Deseja excluir "${session.title}"?'),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(ctx, false),
+                                      child: const Text('Cancelar'),
+                                    ),
+                                    FilledButton(
+                                      style: FilledButton.styleFrom(
+                                          backgroundColor:
+                                              const Color(0xFFD93838)),
+                                      onPressed: () => Navigator.pop(ctx, true),
+                                      child: const Text('Excluir'),
+                                    ),
+                                  ],
+                                ),
+                              );
+                              if (confirm == true) {
+                                await ChatService.instance
+                                    .deleteSession(session.id);
+                              }
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 }
 
@@ -4647,6 +5268,8 @@ class _AssistantChatTabState extends State<_AssistantChatTab> {
   final _scrollController = ScrollController();
   bool _sending = false;
   bool _hasOpenEscalation = false;
+  String _sessionId = '';
+  String _sessionTitle = '';
 
   final _messages = <_AssistantMessage>[
     const _AssistantMessage(
@@ -4666,8 +5289,35 @@ class _AssistantChatTabState extends State<_AssistantChatTab> {
     super.dispose();
   }
 
-  void clearConversation() {
+  void loadSession(ChatSession session) {
     setState(() {
+      _sessionId = session.id;
+      _sessionTitle = session.title;
+      _messages.clear();
+      for (final m in session.messages) {
+        _messages.add(_AssistantMessage(
+          text: m['text']?.toString() ?? '',
+          mine: m['mine'] == true,
+          canEscalate: m['canEscalate'] == true,
+          isAdmin: m['isAdmin'] == true,
+          adminName: m['adminName']?.toString(),
+        ));
+      }
+      if (_messages.isEmpty) {
+        _messages.add(const _AssistantMessage(
+          text: 'Como posso ajudar na sua operação hoje?',
+          mine: false,
+        ));
+      }
+      _hasOpenEscalation = false;
+    });
+    _scrollToBottom();
+  }
+
+  void startNewSession() {
+    setState(() {
+      _sessionId = '';
+      _sessionTitle = '';
       _messages.clear();
       _messages.add(const _AssistantMessage(
         text: 'Como posso ajudar na sua operação hoje?',
@@ -4675,6 +5325,40 @@ class _AssistantChatTabState extends State<_AssistantChatTab> {
       ));
       _hasOpenEscalation = false;
     });
+    _scrollToBottom();
+  }
+
+  void clearConversation() {
+    if (_sessionId.isNotEmpty && !widget.isAdmin) {
+      ChatService.instance.deleteSession(_sessionId);
+    }
+    startNewSession();
+  }
+
+  void _saveCurrentSession(String lastAnswer) {
+    if (widget.isAdmin) return;
+    if (_sessionId.isEmpty) {
+      _sessionId = 'session_${DateTime.now().millisecondsSinceEpoch}';
+    }
+    final session = ChatSession(
+      id: _sessionId,
+      title: _sessionTitle.isNotEmpty ? _sessionTitle : 'Conversa com IA',
+      lastMessageSnippet: lastAnswer.length > 60
+          ? '${lastAnswer.substring(0, 60)}...'
+          : lastAnswer,
+      updatedAt: DateTime.now(),
+      messages: _messages
+          .where((m) => !m.isLoading && !m.isSystemNotification)
+          .map((m) => {
+                'text': m.text,
+                'mine': m.mine,
+                'canEscalate': m.canEscalate,
+                'isAdmin': m.isAdmin,
+                'adminName': m.adminName,
+              })
+          .toList(),
+    );
+    ChatService.instance.saveSession(session);
   }
 
   void _scrollToBottom() {
@@ -4692,6 +5376,11 @@ class _AssistantChatTabState extends State<_AssistantChatTab> {
   Future<void> _send() async {
     final text = _controller.text.trim();
     if (text.isEmpty || _sending) return;
+
+    if (_sessionId.isEmpty && !widget.isAdmin) {
+      _sessionId = 'session_${DateTime.now().millisecondsSinceEpoch}';
+      _sessionTitle = text.length > 35 ? '${text.substring(0, 35)}...' : text;
+    }
 
     final history = _messages
         .where((m) => !m.isLoading && !m.isSystemNotification)
@@ -4729,6 +5418,7 @@ class _AssistantChatTabState extends State<_AssistantChatTab> {
         ));
         _sending = false;
       });
+      _saveCurrentSession(answer);
       _scrollToBottom();
     } catch (_) {
       if (!mounted) return;
@@ -4742,6 +5432,7 @@ class _AssistantChatTabState extends State<_AssistantChatTab> {
         ));
         _sending = false;
       });
+      _saveCurrentSession('Desculpe, ocorreu uma instabilidade na conexão.');
       _scrollToBottom();
     }
   }
@@ -5129,10 +5820,36 @@ class _QuestionCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  '${doubt.userName} - ${doubt.createdAt.contains('T') ? doubt.createdAt.split('T').first : doubt.createdAt}',
-                  style:
-                      const TextStyle(fontSize: 9, color: Color(0xFF737D8C)),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        '${doubt.userName} - ${doubt.createdAt.contains('T') ? doubt.createdAt.split('T').first : doubt.createdAt}',
+                        style:
+                            const TextStyle(fontSize: 9, color: Color(0xFF737D8C)),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (doubt.machineId != null && doubt.machineId!.isNotEmpty) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: _blue.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: _blue.withValues(alpha: 0.2)),
+                        ),
+                        child: Text(
+                          '[${doubt.machineId}]',
+                          style: const TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                            color: _blue,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
                 const SizedBox(height: 6),
                 Text(
@@ -8415,14 +9132,11 @@ class _TrainingTile extends StatelessWidget {
                             'Reprovado - Você acertou 11 de 20 questões (55%).',
                       ),
                   ])),
-              Icon(
-                  admin
-                      ? Icons.chevron_right
-                      : status == 2
-                          ? Icons.favorite
-                          : Icons.favorite_border,
-                  color: _blue,
-                  size: 20)
+              const Icon(
+                Icons.chevron_right,
+                color: _blue,
+                size: 20,
+              ),
             ])));
   }
 }

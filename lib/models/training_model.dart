@@ -304,6 +304,13 @@ class TrainingModel {
   bool get areAllModulesCompleted =>
       modules.isNotEmpty && completedModuleCount == modules.length;
 
+  TrainingModule? get nextIncompleteModule {
+    for (final m in modules) {
+      if (!m.isCompleted && !m.isFullyCompleted) return m;
+    }
+    return modules.isNotEmpty ? modules.first : null;
+  }
+
   TrainingModel copyWith({
     String? id,
     String? title,

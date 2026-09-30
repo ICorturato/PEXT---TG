@@ -482,6 +482,43 @@ class ApiClient {
     return postRaw('/trainings/$trainingId/enroll', {});
   }
 
+  Future<void> unenrollTraining(String trainingId) async {
+    await deleteRaw('/trainings/$trainingId/unenroll');
+  }
+
+  Future<List<Map<String, dynamic>>> getChatSessions() async {
+    try {
+      final res = await getRaw('/chat/sessions');
+      final items = res['items'] as List? ?? [];
+      return items.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<Map<String, dynamic>> saveChatSession(Map<String, dynamic> session) async {
+    return postRaw('/chat/sessions', session);
+  }
+
+  Future<void> deleteChatSession(String id) async {
+    await deleteRaw('/chat/sessions/$id');
+  }
+
+  Future<Map<String, dynamic>> createSupportTicket({
+    required String description,
+    String? machineId,
+    String? processContext,
+  }) async {
+    return postRaw('/doubts', {
+      'description': description,
+      'question': description,
+      'machineId': machineId ?? 'Extrusora Principal',
+      'processContext': processContext ?? 'Linha de Coextrusão',
+      'status': 'OPEN',
+      'timestamp': DateTime.now().toIso8601String(),
+    });
+  }
+
   Future<Map<String, dynamic>> completeTrainingModule(
       String trainingId, String moduleId) async {
     return postRaw('/trainings/$trainingId/modules/$moduleId/complete', {});

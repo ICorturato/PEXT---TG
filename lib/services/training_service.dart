@@ -123,6 +123,63 @@ class TrainingService extends ChangeNotifier {
     return updated;
   }
 
+  List<TrainingModel> get inProgressTrainings => _trainings
+      .where((t) =>
+          t.isEnrolled &&
+          !t.areAllModulesCompleted &&
+          t.enrollmentStatus != 'DROPPED')
+      .toList();
+
+  List<TrainingModel> get readyForAssessmentTrainings => _trainings
+      .where((t) =>
+          t.isEnrolled &&
+          t.areAllModulesCompleted &&
+          t.enrollmentStatus != 'CONCLUIDO' &&
+          t.enrollmentStatus != 'DROPPED')
+      .toList();
+
+  List<TrainingModel> get droppedTrainings => _trainings
+      .where((t) => t.enrollmentStatus == 'DROPPED')
+      .toList();
+
+  List<TrainingModel> get availableTrainings => _trainings
+      .where((t) => !t.isEnrolled && t.enrollmentStatus != 'DROPPED')
+      .toList();
+
+  Future<void> enroll(String id) async {
+    try {
+      await ApiClient.instance.enrollTraining(id);
+      final index = _trainings.indexWhere((t) => t.id == id);
+      if (index >= 0) {
+        _trainings[index] = _trainings[index].copyWith(
+          isEnrolled: true,
+          enrollmentStatus: 'EM_CURSO',
+        );
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('Error enrolling in training: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> unenroll(String id) async {
+    try {
+      await ApiClient.instance.unenrollTraining(id);
+      final index = _trainings.indexWhere((t) => t.id == id);
+      if (index >= 0) {
+        _trainings[index] = _trainings[index].copyWith(
+          isEnrolled: false,
+          enrollmentStatus: 'DROPPED',
+        );
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('Error unenrolling in training: $e');
+      rethrow;
+    }
+  }
+
   Future<void> deleteTraining(String id) async {
     await ApiClient.instance.deleteContent('trainings', id);
     _trainings.removeWhere((t) => t.id == id);

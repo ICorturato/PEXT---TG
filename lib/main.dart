@@ -353,12 +353,7 @@ class HomePage extends StatelessWidget {
                 const SizedBox(height: 10),
                 const SectionTitle('Acesso Rápido'),
                 QuickGrid(admin: admin),
-                if (!admin) ...[
-                  const SectionTitle('Continue treinando'),
-                  const TrainingCard(inProgress: true),
-                  const SectionTitle('Refaça o teste'),
-                  const TrainingCard(inProgress: false),
-                ],
+                if (!admin) const UserTrainingSection(),
               ]),
         ),
       );
@@ -673,6 +668,363 @@ BoxDecoration card() => BoxDecoration(
     color: Colors.white,
     border: Border.all(color: _line),
     borderRadius: BorderRadius.circular(11));
+
+class _HomeTrainingFavoriteIcon extends StatefulWidget {
+  final String trainingId;
+  const _HomeTrainingFavoriteIcon({required this.trainingId});
+
+  @override
+  State<_HomeTrainingFavoriteIcon> createState() => _HomeTrainingFavoriteIconState();
+}
+
+class _HomeTrainingFavoriteIconState extends State<_HomeTrainingFavoriteIcon> {
+  bool _isFav = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _check();
+  }
+
+  Future<void> _check() async {
+    try {
+      final favs = await ApiClient.instance.getFavorites();
+      if (!mounted) return;
+      final list = favs['trainings'] as List? ?? [];
+      if (list.any((t) => t is Map && t['id'] == widget.trainingId)) {
+        setState(() => _isFav = true);
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _toggle() async {
+    try {
+      await ApiClient.instance.toggleFavorite(entityType: 'TRAINING', entityId: widget.trainingId);
+      if (mounted) setState(() => _isFav = !_isFav);
+    } catch (_) {}
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 6),
+      child: InkWell(
+        onTap: _toggle,
+        child: Icon(
+          _isFav ? Icons.favorite : Icons.favorite_border,
+          color: _isFav ? const Color(0xFFEF4444) : _blue,
+          size: 16,
+        ),
+      ),
+    );
+  }
+}
+
+class UserTrainingSection extends StatefulWidget {
+  const UserTrainingSection({super.key});
+
+  @override
+  State<UserTrainingSection> createState() => _UserTrainingSectionState();
+}
+
+class _UserTrainingSectionState extends State<UserTrainingSection> {
+  @override
+  void initState() {
+    super.initState();
+    TrainingService.instance.fetchTrainings();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: TrainingService.instance,
+      builder: (context, _) {
+        final service = TrainingService.instance;
+        final inProgress = service.inProgressTrainings;
+        final readyForExam = service.readyForAssessmentTrainings;
+        final dropped = service.droppedTrainings;
+        final available = service.availableTrainings;
+
+        if (inProgress.isEmpty && readyForExam.isEmpty && dropped.isEmpty && available.isEmpty) {
+          if (service.isLoading) {
+            return const Padding(
+              padding: EdgeInsets.symmetric(vertical: 24),
+              child: Center(child: CircularProgressIndicator()),
+            );
+          }
+          return const Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SectionTitle('Continue treinando'),
+              TrainingCard(inProgress: true),
+              SectionTitle('Refaça o teste'),
+              TrainingCard(inProgress: false),
+            ],
+          );
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 1. Em andamento ("Continue treinando")
+            if (inProgress.isNotEmpty) ...[
+              const SectionTitle('Continue treinando'),
+              ...inProgress.map((t) => _ActionTrainingCard(
+                    training: t,
+                    statusLabel: 'Em curso',
+                    statusColor: const Color(0xFFF59E0B),
+                    subtitle: t.nextIncompleteModule != null
+                        ? 'Módulo ${t.nextIncompleteModule!.order} - ${t.nextIncompleteModule!.title}'
+                        : 'Módulo em andamento',
+                    actionLabel: 'CONTINUAR',
+                    actionColor: _blue,
+                    onAction: () {
+                      final mod = t.nextIncompleteModule ?? (t.modules.isNotEmpty ? t.modules.first : null);
+                      if (mod != null) {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => LessonDetailScreen(
+                              admin: false,
+                              module: mod,
+                              training: t,
+                            ),
+                          ),
+                        ).then((_) => TrainingService.instance.fetchTrainings());
+                      } else {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => TrainingDetailScreen(training: t),
+                          ),
+                        ).then((_) => TrainingService.instance.fetchTrainings());
+                      }
+                    },
+                  )),
+            ],
+
+            // 2. Aguardando Avaliação (100% módulos concluídos)
+            if (readyForExam.isNotEmpty) ...[
+              const SectionTitle('Aguardando Avaliação'),
+              ...readyForExam.map((t) => _ActionTrainingCard(
+                    training: t,
+                    statusLabel: '100% Concluído',
+                    statusColor: const Color(0xFF22C55E),
+                    subtitle: 'Todos os módulos foram concluídos! Faça sua prova final.',
+                    actionLabel: 'FAZER AVALIAÇÃO',
+                    actionColor: const Color(0xFF0B4AA0),
+                    onAction: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ExamScreen(training: t),
+                        ),
+                      ).then((_) => TrainingService.instance.fetchTrainings());
+                    },
+                  )),
+            ],
+
+            // 3. Desistência ("Treinamentos Interrompidos")
+            if (dropped.isNotEmpty) ...[
+              const SectionTitle('Treinamentos Interrompidos'),
+              ...dropped.map((t) => _ActionTrainingCard(
+                    training: t,
+                    statusLabel: 'Desistência',
+                    statusColor: const Color(0xFFF04444),
+                    subtitle: 'Você interrompeu este curso. Retome seus estudos de onde parou.',
+                    actionLabel: 'RETOMAR CURSO',
+                    actionColor: const Color(0xFFD93838),
+                    onAction: () async {
+                      await TrainingService.instance.enroll(t.id);
+                      if (context.mounted) {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => TrainingDetailScreen(training: t),
+                          ),
+                        ).then((_) => TrainingService.instance.fetchTrainings());
+                      }
+                    },
+                  )),
+            ],
+
+            // 4. Novos Treinamentos disponíveis
+            if (available.isNotEmpty) ...[
+              const SectionTitle('Novos Treinamentos'),
+              ...available.take(3).map((t) => _ActionTrainingCard(
+                    training: t,
+                    statusLabel: 'Disponível',
+                    statusColor: _blue,
+                    subtitle: '${t.modules.length} Módulos  •  ${t.workload ?? 'Carga Flexível'}',
+                    actionLabel: 'INSCREVER-SE',
+                    actionColor: _blue,
+                    onAction: () async {
+                      await TrainingService.instance.enroll(t.id);
+                      if (context.mounted) {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => TrainingDetailScreen(training: t),
+                          ),
+                        ).then((_) => TrainingService.instance.fetchTrainings());
+                      }
+                    },
+                  )),
+            ],
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _ActionTrainingCard extends StatelessWidget {
+  final TrainingModel training;
+  final String statusLabel;
+  final Color statusColor;
+  final String subtitle;
+  final String actionLabel;
+  final Color actionColor;
+  final VoidCallback onAction;
+
+  const _ActionTrainingCard({
+    required this.training,
+    required this.statusLabel,
+    required this.statusColor,
+    required this.subtitle,
+    required this.actionLabel,
+    required this.actionColor,
+    required this.onAction,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(builder: (context, constraints) {
+      final wide = constraints.maxWidth >= 540;
+      final coverSize = wide ? 190.0 : 66.0;
+      final titleSize = wide ? 29.0 : 13.0;
+      final bodySize = wide ? 17.0 : 8.0;
+      final padding = wide ? 36.0 : 10.0;
+      final progress = training.progressPercentage;
+      final pctStr = '${(progress * 100).toInt()}%';
+
+      return Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: EdgeInsets.all(padding),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: _line, width: wide ? 3 : 1),
+          borderRadius: BorderRadius.circular(wide ? 30 : 11),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(wide ? 30 : 9),
+              child: Image.asset(
+                'images/training_extrusion.png',
+                width: coverSize,
+                height: coverSize,
+                fit: BoxFit.cover,
+              ),
+            ),
+            SizedBox(width: wide ? 30 : 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          training.title.isNotEmpty ? training.title : 'Treinamento',
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: _blue,
+                            fontSize: titleSize,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      if (training.id.isNotEmpty)
+                        _HomeTrainingFavoriteIcon(trainingId: training.id),
+                      StatusPill(statusLabel, statusColor, fontSize: wide ? 16 : 7),
+                    ],
+                  ),
+                  SizedBox(height: wide ? 7 : 2),
+                  Text(
+                    subtitle,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: bodySize,
+                      color: const Color(0xFF6B7280),
+                    ),
+                  ),
+                  SizedBox(height: wide ? 25 : 7),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: LinearProgressIndicator(
+                          value: progress,
+                          color: _blue,
+                          backgroundColor: const Color(0xFFE5E7EB),
+                          minHeight: wide ? 16 : 5,
+                          borderRadius: BorderRadius.circular(9),
+                        ),
+                      ),
+                      SizedBox(width: wide ? 10 : 6),
+                      Text(
+                        pctStr,
+                        style: TextStyle(
+                          color: _blue,
+                          fontSize: wide ? 29 : 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      SizedBox(width: wide ? 22 : 6),
+                      SizedBox(
+                        height: wide ? 52 : 22,
+                        child: FilledButton(
+                          onPressed: onAction,
+                          style: FilledButton.styleFrom(
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            visualDensity: VisualDensity.compact,
+                            padding: EdgeInsets.symmetric(horizontal: wide ? 14 : 7),
+                            backgroundColor: actionColor,
+                          ),
+                          child: Text(
+                            actionLabel,
+                            style: TextStyle(
+                              fontSize: wide ? 16 : 8,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(width: wide ? 14 : 6),
+            InkWell(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => TrainingDetailScreen(training: training),
+                  ),
+                ).then((_) => TrainingService.instance.fetchTrainings());
+              },
+              child: Icon(Icons.chevron_right, color: _blue, size: wide ? 36 : 18),
+            ),
+          ],
+        ),
+      );
+    });
+  }
+}
 
 class TrainingCard extends StatelessWidget {
   final bool inProgress;
@@ -1591,6 +1943,20 @@ class DashboardPage extends StatefulWidget {
 
 class _DashboardPageState extends State<DashboardPage> {
   int _tab = 0;
+  Map<String, dynamic> _stats = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStats();
+  }
+
+  Future<void> _loadStats() async {
+    try {
+      final res = await ApiClient.instance.getTrainingAnalytics();
+      if (mounted) setState(() => _stats = res);
+    } catch (_) {}
+  }
 
   @override
   Widget build(BuildContext context) => PageFrame(
@@ -1602,8 +1968,8 @@ class _DashboardPageState extends State<DashboardPage> {
               value: _tab, onChanged: (value) => setState(() => _tab = value)),
           const SizedBox(height: 16),
           switch (_tab) {
-            0 => const _DashboardOverview(),
-            1 => const _DashboardProblems(),
+            0 => _DashboardOverview(stats: _stats),
+            1 => _DashboardProblems(stats: _stats),
             2 => const _DashboardTraining(),
             _ => const _DashboardAssistant(),
           },
@@ -1655,67 +2021,92 @@ class _DashboardTabs extends StatelessWidget {
 }
 
 class _DashboardOverview extends StatelessWidget {
-  const _DashboardOverview();
+  final Map<String, dynamic> stats;
+  const _DashboardOverview({super.key, this.stats = const {}});
 
   @override
-  Widget build(BuildContext context) => const Column(children: [
-        _DashboardMetricGrid(metrics: [
-          _DashboardMetric(
-              'Problemas Reportados', '128', '8,3%', Color(0xFF0B4AA0), true),
-          _DashboardMetric(
-              'Solicitações de Ajuda', '32', '12,3%', Color(0xFFD93838), false),
-          _DashboardMetric('Resolução pelo Sistema', '75,8%', '2%',
-              Color(0xFF1CBF66), false),
-          _DashboardMetric('Dúvidas não respondidas (IA)', '13', '8,3%',
-              Color(0xFFF2A400), true),
-          _DashboardMetric(
-              'Treinamentos Concluídos', '36', '5,7%', Color(0xFF8B32EC), true),
-          _DashboardMetric(
-              'Aprovação Média', '78,3%', '2,1%', Color(0xFF1698EA), true),
-        ]),
-        SizedBox(height: 20),
-        _DashboardSectionTitle('Evolução Geral'),
-        SizedBox(height: 10),
-        _LegendRow(),
-        SizedBox(height: 12),
-        _DashboardChart(height: 210, lines: [
-          _ChartLine(
-              Color(0xFFD93838), [57, 61, 55, 60, 56, 59, 73, 65, 62, 73, 66]),
-          _ChartLine(
-              Color(0xFF1768DF), [36, 36, 30, 34, 38, 40, 50, 44, 33, 45, 41]),
-          _ChartLine(
-              Color(0xFF14A957), [17, 25, 26, 26, 25, 28, 34, 28, 31, 28, 25]),
-        ]),
-      ]);
+  Widget build(BuildContext context) {
+    final problemsReported = stats['problemsReported'] ?? 128;
+    final helpRequests = stats['helpRequests'] ?? 32;
+    final systemResolutionRate = stats['systemResolutionRate'] ?? 75.8;
+    final unansweredDoubts = stats['unansweredDoubtsCount'] ?? 13;
+    final trainingsCompleted = stats['trainingsCompletedCount'] ?? 36;
+    final averageApprovalRate = stats['averageApprovalRate'] ?? 78.3;
+
+    return Column(children: [
+      _DashboardMetricGrid(metrics: [
+        _DashboardMetric(
+            'Problemas Reportados', '$problemsReported', '8,3%', const Color(0xFF0B4AA0), true),
+        _DashboardMetric(
+            'Solicitações de Ajuda', '$helpRequests', '12,3%', const Color(0xFFD93838), false),
+        _DashboardMetric('Resolução pelo Sistema', '$systemResolutionRate%', '2%',
+            const Color(0xFF1CBF66), false),
+        _DashboardMetric('Dúvidas não respondidas (IA)', '$unansweredDoubts', '8,3%',
+            const Color(0xFFF2A400), true),
+        _DashboardMetric(
+            'Treinamentos Concluídos', '$trainingsCompleted', '5,7%', const Color(0xFF8B32EC), true),
+        _DashboardMetric(
+            'Aprovação Média', '$averageApprovalRate%', '2,1%', const Color(0xFF1698EA), true),
+      ]),
+      const SizedBox(height: 20),
+      const _DashboardSectionTitle('Evolução Geral'),
+      const SizedBox(height: 10),
+      const _LegendRow(),
+      const SizedBox(height: 12),
+      const _DashboardChart(height: 210, lines: [
+        _ChartLine(
+            Color(0xFFD93838), [57, 61, 55, 60, 56, 59, 73, 65, 62, 73, 66]),
+        _ChartLine(
+            Color(0xFF1768DF), [36, 36, 30, 34, 38, 40, 50, 44, 33, 45, 41]),
+        _ChartLine(
+            Color(0xFF14A957), [17, 25, 26, 26, 25, 28, 34, 28, 31, 28, 25]),
+      ]),
+    ]);
+  }
 }
 
 class _DashboardProblems extends StatelessWidget {
-  const _DashboardProblems();
+  final Map<String, dynamic> stats;
+  const _DashboardProblems({super.key, this.stats = const {}});
 
   @override
-  Widget build(BuildContext context) => const Column(children: [
-        _DashboardMetricGrid(compact: true, metrics: [
-          _DashboardMetric(
-              'Total de Problemas', '128', '8,3%', Color(0xFF0B4AA0), true),
-          _DashboardMetric(
-              'Resolvidos pelo Sistema', '97', '2%', Color(0xFF1CBF66), false),
-          _DashboardMetric(
-              'Encaminhados ao ADM', '32', '1,3%', Color(0xFFD93838), true),
-        ]),
-        SizedBox(height: 20),
-        _DashboardSectionTitle('Problemas por categoria'),
-        SizedBox(height: 10),
-        _DashboardDonutCard(),
-        SizedBox(height: 20),
-        _DashboardSectionTitle('Problemas por produto'),
-        SizedBox(height: 10),
-        _DashboardProgressCard(items: [
-          ('RAP10', 46),
-          ('Macarrão Instantâneo', 26),
-          ('Marcas de gel', 15),
-          ('Iorgute', 32),
-          ('Saco Pão Pulma', 63),
-        ]),
+  Widget build(BuildContext context) {
+    final totalProblems = stats['totalProblems'] ?? 128;
+    final resolvedBySystem = stats['resolvedBySystem'] ?? 97;
+    final forwardedToAdmin = stats['forwardedToAdmin'] ?? 32;
+    final supervisorResolutionRate = stats['supervisorResolutionRate'] ?? 84.2;
+    final totalMaterials = stats['totalMaterials'] ?? 42;
+
+    return Column(children: [
+      _DashboardMetricGrid(compact: true, metrics: [
+        _DashboardMetric(
+            'Total de Problemas', '$totalProblems', '8,3%', const Color(0xFF0B4AA0), true),
+        _DashboardMetric(
+            'Resolvidos pelo Sistema', '$resolvedBySystem', '2%', const Color(0xFF1CBF66), false),
+        _DashboardMetric(
+            'Encaminhados ao ADM', '$forwardedToAdmin', '1,3%', const Color(0xFFD93838), true),
+      ]),
+      const SizedBox(height: 20),
+      const _DashboardSectionTitle('Resolução por Supervisão & Materiais'),
+      const SizedBox(height: 10),
+      _DashboardMetricGrid(compact: true, metrics: [
+        _DashboardMetric('Taxa Resolução Supervisor', '$supervisorResolutionRate%', '4,2%', const Color(0xFF0B4AA0), true),
+        _DashboardMetric('Materiais Catalogados', '$totalMaterials', '3,1%', const Color(0xFF1CBF66), true),
+      ]),
+      const SizedBox(height: 20),
+      const _DashboardSectionTitle('Problemas por categoria'),
+      const SizedBox(height: 10),
+      const _DashboardDonutCard(),
+      const SizedBox(height: 20),
+      const _DashboardSectionTitle('Problemas por produto'),
+      const SizedBox(height: 10),
+      const _DashboardProgressCard(items: [
+        ('RAP10', 46),
+        ('Macarrão Instantâneo', 26),
+        ('Marcas de gel', 15),
+        ('Iorgute', 32),
+        ('Saco Pão Pulma', 63),
+      ]),
         SizedBox(height: 20),
         _DashboardSectionTitle('Problemas ao longo do tempo'),
         SizedBox(height: 10),
@@ -1777,6 +2168,7 @@ class _DashboardProblems extends StatelessWidget {
           ('Limpeza de Matriz', 62),
         ]),
       ]);
+  }
 }
 
 class _DashboardTraining extends StatefulWidget {
@@ -1807,6 +2199,12 @@ class _DashboardTrainingState extends State<_DashboardTraining> {
 
   @override
   Widget build(BuildContext context) {
+    if (_loading && _stats.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 40),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
     final totalTrainings = _stats['totalTrainings'] ?? 128;
     final inProgress = _stats['trainingsInProgress'] ?? 97;
     final finished = _stats['trainingsFinished'] ?? 32;

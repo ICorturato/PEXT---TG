@@ -48,6 +48,9 @@ class DoubtModel {
   final String question;
   final String status; // 'RESPONDIDO', 'NAO_RESPONDIDO'
   final String createdAt;
+  final String? machineId;
+  final String? processContext;
+  final String? description;
   final List<DoubtMessage> messages;
 
   const DoubtModel({
@@ -58,6 +61,9 @@ class DoubtModel {
     required this.question,
     this.status = 'NAO_RESPONDIDO',
     required this.createdAt,
+    this.machineId,
+    this.processContext,
+    this.description,
     this.messages = const [],
   });
 
@@ -68,9 +74,12 @@ class DoubtModel {
         userId: json['userId']?.toString() ?? '',
         userName: json['userName']?.toString() ?? 'Igor Teixeira Corturato',
         userAvatarUrl: json['userAvatarUrl']?.toString(),
-        question: json['question']?.toString() ?? '',
+        question: json['question']?.toString() ?? json['description']?.toString() ?? '',
         status: json['status']?.toString() ?? 'NAO_RESPONDIDO',
         createdAt: json['createdAt']?.toString() ?? '',
+        machineId: json['machineId']?.toString(),
+        processContext: json['processContext']?.toString(),
+        description: json['description']?.toString(),
         messages: (json['messages'] as List? ?? [])
             .map((e) => DoubtMessage.fromJson(e as Map<String, dynamic>))
             .toList(),
@@ -84,6 +93,9 @@ class DoubtModel {
         'question': question,
         'status': status,
         'createdAt': createdAt,
+        if (machineId != null) 'machineId': machineId,
+        if (processContext != null) 'processContext': processContext,
+        if (description != null) 'description': description,
         'messages': messages.map((m) => m.toJson()).toList(),
       };
 
@@ -95,6 +107,9 @@ class DoubtModel {
     String? question,
     String? status,
     String? createdAt,
+    String? machineId,
+    String? processContext,
+    String? description,
     List<DoubtMessage>? messages,
   }) =>
       DoubtModel(
@@ -105,6 +120,9 @@ class DoubtModel {
         question: question ?? this.question,
         status: status ?? this.status,
         createdAt: createdAt ?? this.createdAt,
+        machineId: machineId ?? this.machineId,
+        processContext: processContext ?? this.processContext,
+        description: description ?? this.description,
         messages: messages ?? this.messages,
       );
 }
