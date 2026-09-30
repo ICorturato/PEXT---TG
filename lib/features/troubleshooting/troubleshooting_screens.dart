@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
 import '../../app_routes.dart';
+import '../../models/app_category.dart';
+import '../../models/doubt_model.dart';
 import '../../models/packaging_specification.dart';
+import '../../services/api_client.dart';
 import '../../widgets/pext_asset_icon.dart';
 import '../../widgets/app_search_bar.dart';
+import '../core/category_management_screen.dart';
+import '../core/core_screens.dart';
 
 const _blue = Color(0xFF053488);
 const _canvas = Color(0xFFF6F8FB);
@@ -18,19 +23,37 @@ class TroubleshootingListScreen extends StatefulWidget {
 
 class _TroubleshootingListScreenState extends State<TroubleshootingListScreen> {
   String _query = '';
-  final _problems = const [
-    (
-      'Variação na espessura',
-      'O produto sai com espessura irregular ou fora do especificado'
-    ),
-    ('Falha de selagem', 'A embalagem não apresenta selagem uniforme'),
-    ('Rugosidade no filme', 'A superfície apresenta aspereza ou marcas'),
-    ('Bolhas no material', 'Formação de bolhas durante o processo de extrusão'),
+  var _problems = const [
+    ApiProblem(
+        id: 'local-thickness',
+        title: 'Variação na espessura',
+        description:
+            'O produto sai com espessura irregular ou fora do especificado',
+        recommendedSolution: ''),
+    ApiProblem(
+        id: 'local-sealing',
+        title: 'Falha de selagem',
+        description: 'A embalagem não apresenta selagem uniforme',
+        recommendedSolution: ''),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProblems();
+  }
+
+  Future<void> _loadProblems() async {
+    try {
+      final values = await ApiClient.instance.problems();
+      if (mounted) setState(() => _problems = values);
+    } catch (_) {/* The local list remains available if the API is offline. */}
+  }
+
   @override
   Widget build(BuildContext context) {
     final matches = _problems
-        .where((problem) => '${problem.$1} ${problem.$2}'
+        .where((problem) => '${problem.title} ${problem.description}'
             .toLowerCase()
             .contains(_query.toLowerCase()))
         .toList();
@@ -41,11 +64,14 @@ class _TroubleshootingListScreenState extends State<TroubleshootingListScreen> {
         action: widget.admin
             ? IconButton(
                 tooltip: 'Cadastrar problema',
-                onPressed: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) =>
-                            TroubleshootingFormScreen(admin: widget.admin))),
+                onPressed: () async {
+                  final changed = await Navigator.push<bool>(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) =>
+                              TroubleshootingFormScreen(admin: widget.admin)));
+                  if (changed == true) _loadProblems();
+                },
                 icon: const Icon(Icons.add_circle_outline, color: _blue))
             : null,
         child: Column(children: [
@@ -56,45 +82,195 @@ class _TroubleshootingListScreenState extends State<TroubleshootingListScreen> {
           Expanded(
               child: ListView(children: [
             ...matches.map((problem) => _ProblemCard(
-                  title: problem.$1,
-                  subtitle: problem.$2,
-                  onTap: () {
+                  title: problem.title,
+                  subtitle: problem.description,
+                  onTap: () async {
                     final page = widget.admin
-                        ? TroubleshootingFormScreen(admin: widget.admin)
-                        : PackagingSelectionScreen(problem: problem.$1);
-                    Navigator.push(
+                        ? TroubleshootingFormScreen(
+                            admin: widget.admin, initial: problem)
+                        : PackagingSelectionScreen(
+                            problem: problem.title, problemId: problem.id);
+                    final changed = await Navigator.push<bool>(
                         context, MaterialPageRoute(builder: (_) => page));
+                    if (changed == true && widget.admin) _loadProblems();
                   },
                 )),
             if (!widget.admin)
-              Container(
-                margin: const EdgeInsets.only(top: 10),
-                padding: const EdgeInsets.all(14),
-                decoration: _card(),
-                child: const Row(children: [
-                  Icon(Icons.support_agent, color: _blue),
-                  SizedBox(width: 12),
-                  Expanded(
-                      child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                        Text('Não encontrou o seu problema?',
-                            style: TextStyle(
-                                color: _blue, fontWeight: FontWeight.bold)),
-                        Text(
-                            'Entre em contato com um supervisor para receber auxílio',
-                            style: TextStyle(fontSize: 11))
-                      ]))
-                ]),
+              InkWell(
+                onTap: () => _openSupportEscalation(context),
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  margin: const EdgeInsets.only(top: 10),
+                  padding: const EdgeInsets.all(14),
+                  decoration: _card(),
+                  child: const Row(children: [
+                    Icon(Icons.support_agent, color: _blue, size: 28),
+                    SizedBox(width: 12),
+                    Expanded(
+                        child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                          Text('Não encontrou o seu problema?',
+                              style: TextStyle(
+                                  color: _blue, fontWeight: FontWeight.bold)),
+                          Text(
+                              'Entre em contato com um supervisor para receber auxílio',
+                              style: TextStyle(fontSize: 11))
+                        ])),
+                    Icon(Icons.chevron_right, color: _blue),
+                  ]),
+                ),
               ),
           ])),
         ]));
+  }
+
+  Future<void> _openSupportEscalation(BuildContext context) async {
+    final textController = TextEditingController();
+    bool sending = false;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          padding: EdgeInsets.only(
+            left: 20,
+            right: 20,
+            top: 20,
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFD1D5DB),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Row(
+                children: [
+                  Icon(Icons.support_agent, color: _blue, size: 26),
+                  SizedBox(width: 10),
+                  Text(
+                    'Suporte / Dúvida Operacional',
+                    style: TextStyle(
+                      color: _blue,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Descreva a ocorrência ou problema identificado. Este chamado será registrado imediatamente e encaminhado ao supervisor.',
+                style: TextStyle(color: Color(0xFF6B7280), fontSize: 12),
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: textController,
+                maxLines: 4,
+                decoration: InputDecoration(
+                  hintText: 'Ex: Filme apresentando aspecto leitoso e estrias mesmo após ajuste térmico na zona 3...',
+                  hintStyle: const TextStyle(fontSize: 12, color: Color(0xFF9CA3AF)),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: _border),
+                  ),
+                  filled: true,
+                  fillColor: _canvas,
+                ),
+              ),
+              const SizedBox(height: 16),
+              FilledButton.icon(
+                style: FilledButton.styleFrom(
+                  backgroundColor: _blue,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                onPressed: sending
+                    ? null
+                    : () async {
+                        final question = textController.text.trim();
+                        if (question.isEmpty) return;
+                        setModalState(() => sending = true);
+                        try {
+                          final payload = await ApiClient.instance.postRaw(
+                            '/doubts',
+                            {'question': question},
+                          );
+                          if (ctx.mounted) Navigator.pop(ctx);
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Dúvida encaminhada ao supervisor com sucesso!'),
+                                backgroundColor: Color(0xFF22C55E),
+                              ),
+                            );
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => DoubtThreadScreen(
+                                  doubt: DoubtModel.fromJson(payload),
+                                ),
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          setModalState(() => sending = false);
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Erro ao enviar solicitação: $e'),
+                                backgroundColor: const Color(0xFFEF4444),
+                              ),
+                            );
+                          }
+                        }
+                      },
+                icon: sending
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(Icons.send, size: 18),
+                label: Text(
+                  sending ? 'ENVIANDO...' : 'ENVIAR AO SUPERVISOR',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 
 class PackagingSelectionScreen extends StatefulWidget {
   final String problem;
-  const PackagingSelectionScreen({super.key, required this.problem});
+  final String? problemId;
+  const PackagingSelectionScreen(
+      {super.key, required this.problem, this.problemId});
 
   @override
   State<PackagingSelectionScreen> createState() =>
@@ -105,6 +281,20 @@ class _PackagingSelectionScreenState extends State<PackagingSelectionScreen> {
   String _query = '';
   List<String> get _packages =>
       PackagingCatalog.items.map((item) => item.name).toList();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPackagings();
+  }
+
+  Future<void> _loadPackagings() async {
+    try {
+      final values = await ApiClient.instance.packagings();
+      if (mounted && values.isNotEmpty)
+        setState(() => PackagingCatalog.replace(values));
+    } catch (_) {/* Offline fallback is retained for visual prototype work. */}
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -136,6 +326,7 @@ class _PackagingSelectionScreenState extends State<PackagingSelectionScreen> {
                           MaterialPageRoute(
                               builder: (_) => ChecklistScreen(
                                   problem: widget.problem,
+                                  problemId: widget.problemId,
                                   packaging: packages[index]))))))
         ]));
   }
@@ -143,9 +334,13 @@ class _PackagingSelectionScreenState extends State<PackagingSelectionScreen> {
 
 class ChecklistScreen extends StatefulWidget {
   final String problem;
+  final String? problemId;
   final String packaging;
   const ChecklistScreen(
-      {super.key, required this.problem, required this.packaging});
+      {super.key,
+      required this.problem,
+      this.problemId,
+      required this.packaging});
 
   @override
   State<ChecklistScreen> createState() => _ChecklistScreenState();
@@ -173,6 +368,35 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
 
   TextEditingController _controllerFor(int index) =>
       _controllers.putIfAbsent(index, TextEditingController.new);
+
+  Future<void> _continueToSolutions() async {
+    final measurements = Map<String, double>.fromEntries(List.generate(
+        _specification.enabledVerifications.length,
+        (index) => MapEntry(
+            _specification.enabledVerifications.elementAt(index).name,
+            double.tryParse(_controllerFor(index).text.replaceAll(',', '.')) ??
+                0)));
+    try {
+      if (widget.problemId != null && _specification.id != null) {
+        await ApiClient.instance.diagnose(
+            problemId: widget.problemId!,
+            packagingId: _specification.id!,
+            inputValues: measurements);
+      }
+      if (!mounted) return;
+      Navigator.push(
+          context,
+          MaterialPageRoute(
+              builder: (_) => SolutionsScreen(
+                  problem: widget.problem,
+                  packaging: _specification.name,
+                  measurements: measurements)));
+    } on ApiException catch (error) {
+      if (mounted)
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(error.message)));
+    }
+  }
 
   void _changePackaging() => showModalBottomSheet<void>(
       context: context,
@@ -245,22 +469,7 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
             child: FilledButton(
                 onPressed: _verified.length ==
                         _specification.enabledVerifications.length
-                    ? () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) => SolutionsScreen(
-                                problem: widget.problem,
-                                packaging: _specification.name,
-                                measurements: Map.fromEntries(List.generate(
-                                    _specification.enabledVerifications.length,
-                                    (index) => MapEntry(
-                                        _specification.enabledVerifications
-                                            .elementAt(index)
-                                            .name,
-                                        double.tryParse(_controllerFor(index)
-                                                .text
-                                                .replaceAll(',', '.')) ??
-                                            0))))))
+                    ? _continueToSolutions
                     : null,
                 child: const Text('PRÓXIMO')))
       ]));
@@ -845,42 +1054,109 @@ const _checks = [
 
 class TroubleshootingFormScreen extends StatefulWidget {
   final bool admin;
-  const TroubleshootingFormScreen({super.key, this.admin = false});
+  final ApiProblem? initial;
+  const TroubleshootingFormScreen(
+      {super.key, this.admin = false, this.initial});
   @override
   State<TroubleshootingFormScreen> createState() =>
       _TroubleshootingFormScreenState();
 }
 
 class _TroubleshootingFormScreenState extends State<TroubleshootingFormScreen> {
+  late final TextEditingController _title;
+  late final TextEditingController _description;
+  late final TextEditingController _solution;
+  String? _categoryId;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _title = TextEditingController(text: widget.initial?.title ?? '');
+    _description =
+        TextEditingController(text: widget.initial?.description ?? '');
+    _solution =
+        TextEditingController(text: widget.initial?.recommendedSolution ?? '');
+    _categoryId = widget.initial?.categoryId;
+  }
+
+  @override
+  void dispose() {
+    _title.dispose();
+    _description.dispose();
+    _solution.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    if (_title.text.trim().isEmpty || _description.text.trim().isEmpty) return;
+    setState(() => _saving = true);
+    try {
+      final values = {
+        'title': _title.text.trim(),
+        'description': _description.text.trim(),
+        'categoryId': _categoryId,
+        'recommendedSolution': _solution.text.trim(),
+      };
+      if (widget.initial == null) {
+        await ApiClient.instance.createContent('problems', values);
+      } else {
+        await ApiClient.instance
+            .updateContent('problems', widget.initial!.id, values);
+      }
+      if (mounted) Navigator.pop(context, true);
+    } on ApiException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(error.message)));
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _delete() async {
+    if (widget.initial == null) return;
+    try {
+      await ApiClient.instance.deleteContent('problems', widget.initial!.id);
+      if (mounted) Navigator.pop(context, true);
+    } on ApiException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(error.message)));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) => _TroubleScaffold(
       title: 'Cadastrar problema',
       admin: widget.admin,
+      action: widget.initial == null
+          ? null
+          : IconButton(
+              tooltip: 'Delete problem',
+              icon: const Icon(Icons.delete_outline, color: Color(0xFFD93838)),
+              onPressed: _delete),
       child: Column(children: [
         Expanded(child: SingleChildScrollView(child: _general())),
         SizedBox(
             width: double.infinity,
             height: 52,
             child: FilledButton(
-                onPressed: () => showDialog(
-                    context: context,
-                    builder: (_) => AlertDialog(
-                            title: const Text('Problema cadastrado'),
-                            content: const Text(
-                                'O conteúdo foi salvo no protótipo.'),
-                            actions: [
-                              TextButton(
-                                  onPressed: () => Navigator.pop(context),
-                                  child: const Text('Fechar'))
-                            ])),
-                child: const Text('CADASTRAR'))),
+                onPressed: _saving ? null : _save,
+                child: Text(widget.initial == null ? 'CADASTRAR' : 'SALVAR'))),
         const SizedBox(height: 8),
       ]));
-  Widget _general() => const Column(children: [
-        _Field('Título do Problema'),
-        _Field('Descrição / Sintomas', lines: 4),
-        _Field('Categoria / Ícone'),
-        _Field('Guia de Solução Recomendada', lines: 5)
+  Widget _general() => Column(children: [
+        _Field('Título do Problema', controller: _title),
+        _Field('Descrição / Sintomas', controller: _description, lines: 4),
+        ScopedCategoryPicker(
+            scope: CategoryScope.problem,
+            value: _categoryId,
+            onChanged: (value) => setState(() => _categoryId = value)),
+        const SizedBox(height: 12),
+        _Field('Guia de Solução Recomendada', controller: _solution, lines: 5)
       ]);
 }
 
@@ -1150,35 +1426,7 @@ class _SolutionCard extends StatelessWidget {
       ]));
 }
 
-class _Tabs extends StatelessWidget {
-  final int selected;
-  final ValueChanged<int> onChanged;
-  const _Tabs({required this.selected, required this.onChanged});
-  @override
-  Widget build(BuildContext context) => Row(
-      children: ['Visão geral', 'Verificações']
-          .asMap()
-          .entries
-          .map((entry) => Expanded(
-              child: InkWell(
-                  onTap: () => onChanged(entry.key),
-                  child: Column(children: [
-                    Text(entry.value,
-                        style: TextStyle(
-                            fontSize: 13,
-                            color: entry.key == selected
-                                ? _blue
-                                : const Color(0xFF7A8290),
-                            fontWeight: entry.key == selected
-                                ? FontWeight.bold
-                                : FontWeight.normal)),
-                    const SizedBox(height: 8),
-                    Container(
-                        height: 2,
-                        color: entry.key == selected ? _blue : _border)
-                  ]))))
-          .toList());
-}
+
 
 class _RadioTile extends StatelessWidget {
   final IconData icon;
@@ -1222,7 +1470,8 @@ class _RadioTile extends StatelessWidget {
 class _Field extends StatelessWidget {
   final String label;
   final int lines;
-  const _Field(this.label, {this.lines = 1});
+  final TextEditingController? controller;
+  const _Field(this.label, {this.lines = 1, this.controller});
   @override
   Widget build(BuildContext context) => Padding(
       padding: const EdgeInsets.only(bottom: 13),
@@ -1232,6 +1481,7 @@ class _Field extends StatelessWidget {
                 color: _blue, fontWeight: FontWeight.w600, fontSize: 13)),
         const SizedBox(height: 5),
         TextField(
+            controller: controller,
             maxLines: lines,
             decoration: InputDecoration(
                 hintText: 'Preencha $label',

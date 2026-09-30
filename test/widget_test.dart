@@ -6,6 +6,7 @@ void main() {
     await tester.pumpWidget(const PextApp());
 
     expect(find.text('ENTRAR'), findsOneWidget);
-    expect(find.text('CPF'), findsOneWidget);
+    expect(find.text('E-mail'), findsOneWidget);
+    expect(find.text('Password'), findsOneWidget);
   });
 }

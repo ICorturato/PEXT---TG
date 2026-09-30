@@ -6,7 +6,8 @@ plugins {
 
 android {
     namespace = "com.example.pext"
-    compileSdk = flutter.compileSdkVersion
+    // file_picker and its Android lifecycle dependency require API 36.
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {

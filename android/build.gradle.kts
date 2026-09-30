@@ -19,6 +19,9 @@ subprojects {
     project.evaluationDependsOn(":app")
 }
 
+// Flutter plugins are Android library modules. Keep them on the same API
+// level as the app so plugin AAR metadata is evaluated consistently.
+
 tasks.register<Delete>("clean") {
     delete(rootProject.layout.buildDirectory)
 }

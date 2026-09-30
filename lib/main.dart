@@ -2,9 +2,13 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'app_routes.dart';
+import 'features/admin/admin_user_screens.dart';
 import 'features/core/core_screens.dart';
 import 'features/resins/resins_screens.dart';
 import 'features/troubleshooting/troubleshooting_screens.dart';
+import 'models/training_model.dart';
+import 'services/api_client.dart';
+import 'services/training_service.dart';
 import 'widgets/pext_asset_icon.dart';
 
 void main() => runApp(const PextApp());
@@ -51,8 +55,48 @@ class PextApp extends StatelessWidget {
       );
 }
 
-class LoginPage extends StatelessWidget {
+class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
+
+  @override
+  State<LoginPage> createState() => _LoginPageState();
+}
+
+class _LoginPageState extends State<LoginPage> {
+  final _email = TextEditingController(text: 'admin@pext.local');
+  final _password = TextEditingController(text: 'admin123');
+  bool _loading = false;
+
+  @override
+  void dispose() {
+    _email.dispose();
+    _password.dispose();
+    super.dispose();
+  }
+
+  Future<void> _login() async {
+    setState(() => _loading = true);
+    try {
+      await ApiClient.instance.login(_email.text.trim(), _password.text);
+      if (!mounted) return;
+      Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+              builder: (_) =>
+                  HomePage(admin: ApiClient.instance.session.isAdmin)));
+    } on ApiException catch (error) {
+      if (mounted)
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(error.message)));
+    } catch (_) {
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Could not reach ${ApiClient.baseUrl}. '
+                'Check the local backend connection.')));
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -65,10 +109,13 @@ class LoginPage extends StatelessWidget {
                 const Spacer(flex: 3),
                 const PextLogo(),
                 const Spacer(flex: 3),
-                const FieldLabel('CPF', hint: 'Digite seu CPF'),
+                FieldLabel('E-mail',
+                    hint: 'admin@pext.local', controller: _email),
                 const SizedBox(height: 6),
-                const FieldLabel('Senha',
-                    hint: 'Digite sua senha', obscure: true),
+                FieldLabel('Password',
+                    hint: 'Enter your password',
+                    obscure: true,
+                    controller: _password),
                 Align(
                   alignment: Alignment.centerRight,
                   child: TextButton(
@@ -79,52 +126,22 @@ class LoginPage extends StatelessWidget {
                 ),
                 const Spacer(flex: 2),
                 FilledButton(
-                  onPressed: () => showModalBottomSheet<void>(
-                    context: context,
-                    builder: (sheetContext) => SafeArea(
-                      child: Padding(
-                        padding: const EdgeInsets.all(20),
-                        child:
-                            Column(mainAxisSize: MainAxisSize.min, children: [
-                          const Text('Escolha o perfil para visualizar',
-                              style: TextStyle(
-                                  color: _blue,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w600)),
-                          const SizedBox(height: 14),
-                          ListTile(
-                            leading: const Icon(Icons.engineering_outlined,
-                                color: _blue),
-                            title: const Text('Usuário'),
-                            onTap: () => Navigator.pushReplacement(
-                                context,
-                                MaterialPageRoute(
-                                    builder: (_) => const HomePage())),
-                          ),
-                          ListTile(
-                            leading: const Icon(
-                                Icons.admin_panel_settings_outlined,
-                                color: _blue),
-                            title: const Text('Administrador'),
-                            onTap: () => Navigator.pushReplacement(
-                                context,
-                                MaterialPageRoute(
-                                    builder: (_) =>
-                                        const HomePage(admin: true))),
-                          ),
-                        ]),
-                      ),
-                    ),
-                  ),
+                  onPressed: _loading ? null : _login,
                   style: FilledButton.styleFrom(
                     backgroundColor: const Color(0xFF17459A),
                     minimumSize: const Size.fromHeight(55),
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14)),
                   ),
-                  child: const Text('ENTRAR',
-                      style:
-                          TextStyle(fontSize: 25, fontWeight: FontWeight.bold)),
+                  child: _loading
+                      ? const SizedBox(
+                          height: 24,
+                          width: 24,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white))
+                      : const Text('ENTRAR',
+                          style: TextStyle(
+                              fontSize: 25, fontWeight: FontWeight.bold)),
                 ),
                 const Spacer(flex: 3),
               ],
@@ -147,14 +164,16 @@ class PextLogo extends StatelessWidget {
 class FieldLabel extends StatelessWidget {
   final String label, hint;
   final bool obscure;
+  final TextEditingController? controller;
   const FieldLabel(this.label,
-      {super.key, required this.hint, this.obscure = false});
+      {super.key, required this.hint, this.obscure = false, this.controller});
   @override
   Widget build(BuildContext context) =>
       Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text(label, style: const TextStyle(color: _blue, fontSize: 16)),
         const SizedBox(height: 5),
         TextField(
+          controller: controller,
           obscureText: obscure,
           decoration: InputDecoration(
             hintText: hint,
@@ -366,7 +385,9 @@ class HomePage extends StatelessWidget {
 class ProfileAvatar extends StatelessWidget {
   const ProfileAvatar({super.key});
   @override
-  Widget build(BuildContext context) => Container(
+  Widget build(BuildContext context) {
+    final avatarUrl = ApiClient.instance.session.avatarUrl;
+    return Container(
       width: 56,
       height: 56,
       decoration: BoxDecoration(
@@ -374,17 +395,73 @@ class ProfileAvatar extends StatelessWidget {
           color: Colors.white,
           border: Border.all(color: _line)),
       clipBehavior: Clip.antiAlias,
-      child: Image.asset('images/profile_igor.png',
-          fit: BoxFit.cover, alignment: const Alignment(0, -0.45)));
+      child: (avatarUrl != null && avatarUrl.isNotEmpty)
+          ? Image.network(
+              ApiClient.instance.resolveMediaUrl(avatarUrl),
+              fit: BoxFit.cover,
+              alignment: const Alignment(0, -0.45),
+              errorBuilder: (_, __, ___) => Image.asset(
+                'images/profile_igor.png',
+                fit: BoxFit.cover,
+                alignment: const Alignment(0, -0.45),
+              ),
+            )
+          : Image.asset('images/profile_igor.png',
+              fit: BoxFit.cover, alignment: const Alignment(0, -0.45)),
+    );
+  }
 }
 
-class UserProgress extends StatelessWidget {
+class UserProgress extends StatefulWidget {
   const UserProgress({super.key});
+
+  @override
+  State<UserProgress> createState() => _UserProgressState();
+}
+
+class _UserProgressState extends State<UserProgress> {
+  int _completed = 12;
+  int _inProgress = 6;
+  double _pct = 0.5;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      await TrainingService.instance.fetchTrainings();
+      final trainings = TrainingService.instance.trainings;
+      if (trainings.isNotEmpty) {
+        int completed = 0;
+        int inProgress = 0;
+        for (final t in trainings) {
+          if (t.areAllModulesCompleted || t.progressPercentage >= 1.0) {
+            completed++;
+          } else if (t.progressPercentage > 0.0) {
+            inProgress++;
+          }
+        }
+        final total = trainings.length;
+        final pct = total > 0 ? (completed / total).clamp(0.0, 1.0) : 0.0;
+        if (mounted) {
+          setState(() {
+            _completed = completed;
+            _inProgress = inProgress;
+            _pct = pct;
+          });
+        }
+      }
+    } catch (_) {}
+  }
+
   @override
   Widget build(BuildContext context) =>
       Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         const Text('Seu progresso',
-            style: TextStyle(color: _blue, fontSize: 18)),
+            style: TextStyle(color: _blue, fontSize: 18, fontWeight: FontWeight.bold)),
         const SizedBox(height: 10),
         Container(
             height: 140,
@@ -392,6 +469,7 @@ class UserProgress extends StatelessWidget {
             decoration: card(),
             child: LayoutBuilder(builder: (context, constraints) {
               final ringSize = constraints.maxHeight * .68;
+              final pctInt = (_pct * 100).toInt();
               return Row(children: [
                 SizedBox(
                     width: ringSize,
@@ -399,20 +477,21 @@ class UserProgress extends StatelessWidget {
                     child: Stack(alignment: Alignment.center, children: [
                       Positioned.fill(
                           child: CircularProgressIndicator(
-                              value: .5,
+                              value: _pct,
                               strokeWidth: ringSize * .085,
                               backgroundColor: const Color(0xFFE5E7EB),
                               color: _blue)),
-                      Text('50%',
+                      Text('$pctInt%',
                           style: TextStyle(
                               fontSize: ringSize * .20,
+                              fontWeight: FontWeight.bold,
                               color: const Color(0xFF000000)))
                     ])),
                 const SizedBox(width: 22),
-                const Expanded(
-                    child: ProgressStat('12', 'Treinamentos\nConcluídos')),
-                const Expanded(
-                    child: ProgressStat('6', 'Treinamentos\nem Curso')),
+                Expanded(
+                    child: ProgressStat('$_completed', 'Treinamentos\nConcluídos')),
+                Expanded(
+                    child: ProgressStat('$_inProgress', 'Treinamentos\nem Curso')),
               ]);
             })),
         const SizedBox(height: 10),
@@ -543,6 +622,9 @@ class QuickGrid extends StatelessWidget {
       if (admin)
         QuickAction(PextAssets.product, 'Embalagens',
             () => go(context, const PackagingPage(admin: true))),
+      if (admin)
+        QuickAction(PextAssets.profile, 'Usuários',
+            () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminUserManagementScreen()))),
     ];
     return GridView.builder(
         shrinkWrap: true,
@@ -797,34 +879,262 @@ class PageFrame extends StatelessWidget {
           ])));
 }
 
-class FavoritesPage extends StatelessWidget {
+class FavoritesPage extends StatefulWidget {
   const FavoritesPage({super.key});
+
   @override
-  Widget build(BuildContext context) => PageFrame(
+  State<FavoritesPage> createState() => _FavoritesPageState();
+}
+
+class _FavoritesPageState extends State<FavoritesPage> {
+  int _tab = 0; // 0: Todos, 1: Resinas, 2: Treinamentos, 3: Termos
+  bool _loading = true;
+  List<Map<String, dynamic>> _resins = [];
+  List<Map<String, dynamic>> _trainings = [];
+  List<Map<String, dynamic>> _terms = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFavorites();
+  }
+
+  Future<void> _loadFavorites() async {
+    setState(() => _loading = true);
+    try {
+      final res = await ApiClient.instance.getFavorites();
+      if (mounted) {
+        setState(() {
+          _resins = (res['resins'] as List? ?? [])
+              .map((e) => Map<String, dynamic>.from(e as Map))
+              .toList();
+          _trainings = (res['trainings'] as List? ?? [])
+              .map((e) => Map<String, dynamic>.from(e as Map))
+              .toList();
+          _terms = (res['terms'] as List? ?? [])
+              .map((e) => Map<String, dynamic>.from(e as Map))
+              .toList();
+          _loading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _toggleFavorite(String entityType, String entityId) async {
+    try {
+      await ApiClient.instance.toggleFavorite(entityType: entityType, entityId: entityId);
+      if (mounted) {
+        setState(() {
+          if (entityType == 'RESIN') {
+            _resins.removeWhere((r) => r['id']?.toString() == entityId);
+          } else if (entityType == 'TRAINING') {
+            _trainings.removeWhere((t) => t['id']?.toString() == entityId);
+          } else if (entityType == 'TERM') {
+            _terms.removeWhere((t) => t['id']?.toString() == entityId);
+          }
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Removido dos favoritos.'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao atualizar favorito: $e'),
+            backgroundColor: const Color(0xFFEF4444),
+          ),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final showResins = (_tab == 0 || _tab == 1) && _resins.isNotEmpty;
+    final showTrainings = (_tab == 0 || _tab == 2) && _trainings.isNotEmpty;
+    final showTerms = (_tab == 0 || _tab == 3) && _terms.isNotEmpty;
+    final hasAny = showResins || showTrainings || showTerms;
+
+    return PageFrame(
       title: 'Favoritos',
       selected: 1,
       returnToHome: true,
-      child: const SingleChildScrollView(
-          padding: EdgeInsets.symmetric(horizontal: 16),
-          child:
-              Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            FavoriteSectionHeader('Resinas', PextAssets.recycling),
-            FavoriteResinCard(),
-            FavoriteResinCard(),
-            FavoriteResinCard(),
-            FavoriteSectionButton('Ver todas as resinas favoritas'),
-            FavoriteDivider(),
-            FavoriteSectionHeader('Treinamentos', PextAssets.training),
-            FavoriteTrainingCard(status: FavoriteTrainingStatus.inProgress),
-            FavoriteTrainingCard(status: FavoriteTrainingStatus.dropped),
-            FavoriteTrainingCard(status: FavoriteTrainingStatus.completed),
-            FavoriteSectionButton('Ver todos os treinamentos favoritos'),
-            FavoriteDivider(),
-            FavoriteSectionHeader('Termos', PextAssets.glossary),
-            FavoriteTermCard(initials: 'P', color: Color(0xFF0A9B53)),
-            FavoriteTermCard(initials: 'PE', color: Color(0xFFA36BE2)),
-            SizedBox(height: 18),
-          ])));
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _favFilterChip('Todos', 0),
+                  const SizedBox(width: 8),
+                  _favFilterChip('Resinas (${_resins.length})', 1),
+                  const SizedBox(width: 8),
+                  _favFilterChip('Treinamentos (${_trainings.length})', 2),
+                  const SizedBox(width: 8),
+                  _favFilterChip('Termos (${_terms.length})', 3),
+                ],
+              ),
+            ),
+          ),
+          Expanded(
+            child: _loading
+                ? const Center(child: CircularProgressIndicator(color: _blue))
+                : RefreshIndicator(
+                    onRefresh: _loadFavorites,
+                    color: _blue,
+                    child: !hasAny
+                        ? ListView(
+                            padding: const EdgeInsets.all(32),
+                            children: [
+                              const SizedBox(height: 60),
+                              const Icon(Icons.favorite_border,
+                                  size: 64, color: Color(0xFF9CA3AF)),
+                              const SizedBox(height: 16),
+                              const Center(
+                                child: Text(
+                                  'Nenhum favorito encontrado',
+                                  style: TextStyle(
+                                    color: _blue,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              const Center(
+                                child: Text(
+                                  'Toque no ícone de coração em resinas, treinamentos ou termos para adicioná-los aos seus favoritos.',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                      color: Color(0xFF6B7280), fontSize: 13),
+                                ),
+                              ),
+                            ],
+                          )
+                        : ListView(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 8),
+                            children: [
+                              // Resinas Section
+                              if (showResins) ...[
+                                FavoriteSectionHeader(
+                                    'Resinas (${_resins.length})',
+                                    PextAssets.recycling),
+                                ..._resins.map((r) => _DynamicFavoriteResinCard(
+                                      resin: r,
+                                      onUnfavorite: () => _toggleFavorite(
+                                          'RESIN', r['id']?.toString() ?? ''),
+                                      onTap: () async {
+                                        await Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (_) => DetalhesResinaScreen(
+                                              resinId: r['id']?.toString() ?? '',
+                                              admin: false,
+                                            ),
+                                          ),
+                                        );
+                                        _loadFavorites();
+                                      },
+                                    )),
+                                if (_tab == 0 && (showTrainings || showTerms))
+                                  const FavoriteDivider(),
+                              ],
+
+                              // Treinamentos Section
+                              if (showTrainings) ...[
+                                FavoriteSectionHeader(
+                                    'Treinamentos (${_trainings.length})',
+                                    PextAssets.training),
+                                ..._trainings.map((t) =>
+                                    _DynamicFavoriteTrainingCard(
+                                      training: t,
+                                      onUnfavorite: () => _toggleFavorite(
+                                          'TRAINING', t['id']?.toString() ?? ''),
+                                      onTap: () async {
+                                        await Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (_) => TrainingDetailScreen(
+                                              training:
+                                                  TrainingModel.fromJson(t),
+                                              admin: false,
+                                            ),
+                                          ),
+                                        );
+                                        _loadFavorites();
+                                      },
+                                    )),
+                                if (_tab == 0 && showTerms)
+                                  const FavoriteDivider(),
+                              ],
+
+                              // Termos Section
+                              if (showTerms) ...[
+                                FavoriteSectionHeader(
+                                    'Termos (${_terms.length})',
+                                    PextAssets.glossary),
+                                ..._terms.map((t) => _DynamicFavoriteTermCard(
+                                      term: t,
+                                      onUnfavorite: () => _toggleFavorite(
+                                          'TERM', t['id']?.toString() ?? ''),
+                                      onTap: () async {
+                                        await Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (_) => DetalhesTermoScreen(
+                                              item: ApiContent(t),
+                                              admin: false,
+                                            ),
+                                          ),
+                                        );
+                                        _loadFavorites();
+                                      },
+                                    )),
+                              ],
+                              const SizedBox(height: 24),
+                            ],
+                          ),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _favFilterChip(String label, int index) {
+    final active = _tab == index;
+    return InkWell(
+      onTap: () => setState(() => _tab = index),
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        decoration: BoxDecoration(
+          color: active ? _blue : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: active ? _blue : const Color(0xFFD1D5DB),
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: active ? Colors.white : const Color(0xFF4B5563),
+            fontSize: 12,
+            fontWeight: active ? FontWeight.bold : FontWeight.w500,
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class FavoriteSectionHeader extends StatelessWidget {
@@ -851,246 +1161,299 @@ class FavoriteSectionHeader extends StatelessWidget {
       ]));
 }
 
-class FavoriteResinCard extends StatelessWidget {
-  const FavoriteResinCard({super.key});
+class _DynamicFavoriteResinCard extends StatelessWidget {
+  final Map<String, dynamic> resin;
+  final VoidCallback onTap;
+  final VoidCallback onUnfavorite;
+
+  const _DynamicFavoriteResinCard({
+    required this.resin,
+    required this.onTap,
+    required this.onUnfavorite,
+  });
+
   @override
-  Widget build(BuildContext context) => Container(
-      margin: const EdgeInsets.only(bottom: 7),
-      padding: const EdgeInsets.all(9),
+  Widget build(BuildContext context) {
+    final acronym = resin['acronym']?.toString() ?? resin['name']?.toString() ?? 'RESINA';
+    final fullName = resin['fullName']?.toString() ?? resin['technicalName']?.toString() ?? '';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border.all(color: _line),
-          borderRadius: BorderRadius.circular(16)),
-      child: Row(children: [
-        Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-                border: Border.all(color: const Color(0xFF8B9099), width: 1.5),
-                borderRadius: BorderRadius.circular(12)),
-            child: const Padding(
-                padding: EdgeInsets.all(8),
-                child: PextAssetIcon(PextAssets.resin, size: 30))),
-        const SizedBox(width: 10),
-        const Expanded(
-            child:
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('PEBD',
-              style: TextStyle(
-                  color: _blue, fontSize: 17, fontWeight: FontWeight.bold)),
-          Text('Polietileno de Baixa Densidade',
-              style: TextStyle(color: Color(0xFF6B7280), fontSize: 9))
-        ])),
-        const PextAssetIcon(PextAssets.heartActive, size: 25),
-      ]));
+        color: Colors.white,
+        border: Border.all(color: _line),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  border: Border.all(color: const Color(0xFF8B9099), width: 1.5),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Padding(
+                  padding: EdgeInsets.all(8),
+                  child: PextAssetIcon(PextAssets.resin, size: 30),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      acronym,
+                      style: const TextStyle(
+                        color: _blue,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    if (fullName.isNotEmpty)
+                      Text(
+                        fullName,
+                        style: const TextStyle(
+                          color: Color(0xFF6B7280),
+                          fontSize: 10,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              IconButton(
+                icon: const PextAssetIcon(PextAssets.heartActive, size: 24),
+                onPressed: onUnfavorite,
+                tooltip: 'Remover dos favoritos',
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
-class FavoriteSectionButton extends StatelessWidget {
-  final String label;
-  const FavoriteSectionButton(this.label, {super.key});
+class _DynamicFavoriteTrainingCard extends StatelessWidget {
+  final Map<String, dynamic> training;
+  final VoidCallback onTap;
+  final VoidCallback onUnfavorite;
+
+  const _DynamicFavoriteTrainingCard({
+    required this.training,
+    required this.onTap,
+    required this.onUnfavorite,
+  });
+
   @override
-  Widget build(BuildContext context) => Padding(
-      padding: const EdgeInsets.only(top: 4),
-      child: OutlinedButton(
-          onPressed: () {},
-          style: OutlinedButton.styleFrom(
-              minimumSize: const Size.fromHeight(38),
-              side: const BorderSide(color: Color(0xFF4DA3FF), width: 1.5),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12))),
-          child: Text(label,
-              style:
-                  const TextStyle(color: _blue, fontWeight: FontWeight.bold))));
+  Widget build(BuildContext context) {
+    final title = training['title']?.toString() ?? 'Treinamento';
+    final modules = training['modules'] as List? ?? [];
+    final completedCount = (training['completedModuleCount'] as num?)?.toInt() ??
+        modules.where((m) => (m is Map && m['isCompleted'] == true)).length;
+    final totalCount = modules.isNotEmpty ? modules.length : 1;
+    final progress = (completedCount / totalCount).clamp(0.0, 1.0);
+    final isDone = progress >= 1.0;
+    final badgeText = isDone ? 'Concluído' : (progress > 0 ? 'Em curso' : 'Não iniciado');
+    final badgeColor = isDone
+        ? const Color(0xFF22C55E)
+        : (progress > 0 ? const Color(0xFFF59E0B) : const Color(0xFF6B7280));
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: _line),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.asset(
+                  'images/training_extrusion.png',
+                  width: 60,
+                  height: 60,
+                  fit: BoxFit.cover,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: _blue,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                        StatusPill(badgeText, badgeColor),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '$completedCount de $totalCount módulos concluídos',
+                      style: const TextStyle(color: Color(0xFF6B7280), fontSize: 10),
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(4),
+                            child: LinearProgressIndicator(
+                              value: progress,
+                              minHeight: 5,
+                              color: _blue,
+                              backgroundColor: const Color(0xFFE5E7EB),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          '${(progress * 100).toInt()}%',
+                          style: const TextStyle(
+                            color: _blue,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                icon: const PextAssetIcon(PextAssets.heartActive, size: 22),
+                onPressed: onUnfavorite,
+                tooltip: 'Remover dos favoritos',
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DynamicFavoriteTermCard extends StatelessWidget {
+  final Map<String, dynamic> term;
+  final VoidCallback onTap;
+  final VoidCallback onUnfavorite;
+
+  const _DynamicFavoriteTermCard({
+    required this.term,
+    required this.onTap,
+    required this.onUnfavorite,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final termName = term['term']?.toString() ?? term['title']?.toString() ?? 'Termo';
+    final initial = termName.isNotEmpty ? termName.substring(0, 1).toUpperCase() : 'T';
+    final definition = term['definition']?.toString() ?? term['text']?.toString() ?? '';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: _line),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEFF6FF),
+                  border: Border.all(color: const Color(0xFF93C5FD), width: 1.5),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  initial,
+                  style: const TextStyle(
+                    color: _blue,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      termName,
+                      style: const TextStyle(
+                        color: _blue,
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    if (definition.isNotEmpty)
+                      Text(
+                        definition,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Color(0xFF6B7280),
+                          fontSize: 11,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              IconButton(
+                icon: const PextAssetIcon(PextAssets.heartActive, size: 22),
+                onPressed: onUnfavorite,
+                tooltip: 'Remover dos favoritos',
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class FavoriteDivider extends StatelessWidget {
   const FavoriteDivider({super.key});
   @override
   Widget build(BuildContext context) => const Padding(
-      padding: EdgeInsets.only(top: 12),
-      child: Divider(height: 1, thickness: 1, color: Color(0xFF6B7280)));
-}
-
-enum FavoriteTrainingStatus { inProgress, dropped, completed }
-
-class FavoriteTrainingCard extends StatelessWidget {
-  final FavoriteTrainingStatus status;
-  const FavoriteTrainingCard({super.key, required this.status});
-  @override
-  Widget build(BuildContext context) {
-    final inProgress = status == FavoriteTrainingStatus.inProgress;
-    final dropped = status == FavoriteTrainingStatus.dropped;
-    final completed = status == FavoriteTrainingStatus.completed;
-    final badgeText = inProgress
-        ? 'Em curso'
-        : dropped
-            ? 'Desistência'
-            : 'Concluído';
-    final badgeColor = inProgress
-        ? const Color(0xFFF59E0B)
-        : dropped
-            ? const Color(0xFFEF4444)
-            : const Color(0xFF22C55E);
-    final progress = inProgress
-        ? .7
-        : completed
-            ? 1.0
-            : 0.0;
-    return Container(
-        margin: const EdgeInsets.only(bottom: 9),
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: _line),
-            borderRadius: BorderRadius.circular(16)),
-        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: Image.asset('images/training_extrusion.png',
-                  width: 64, height: 64, fit: BoxFit.cover)),
-          const SizedBox(width: 10),
-          Expanded(
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                Row(children: [
-                  const Expanded(
-                      child: Text('Processo de ...',
-                          style: TextStyle(
-                              color: _blue, fontWeight: FontWeight.bold))),
-                  StatusPill(badgeText, badgeColor)
-                ]),
-                const Text('Módulo 2 - Temperatura de...',
-                    style: TextStyle(color: Color(0xFF6B7280), fontSize: 8)),
-                const SizedBox(height: 7),
-                Row(children: [
-                  Expanded(
-                      child: LinearProgressIndicator(
-                          value: progress,
-                          minHeight: 5,
-                          borderRadius: BorderRadius.circular(5),
-                          color: _blue,
-                          backgroundColor: const Color(0xFFE5E7EB))),
-                  const SizedBox(width: 5),
-                  Text('${(progress * 100).round()}%',
-                      style: const TextStyle(color: _blue, fontSize: 10)),
-                  if (!completed) ...[
-                    const SizedBox(width: 7),
-                    _FavoriteAction(
-                        label: inProgress ? 'CONTINUAR' : 'RETOMAR',
-                        outlined: dropped)
-                  ]
-                ]),
-                if (dropped)
-                  const _FavoriteTrainingAlert(
-                      asset: PextAssets.tryAgain,
-                      text:
-                          'Você parou de estudar. Retome de onde parou para continuar seu progresso.',
-                      background: Color(0xFFFFE8E8),
-                      foreground: Color(0xFFEF4444)),
-                if (completed)
-                  const _FavoriteTrainingAlert(
-                      asset: PextAssets.approved,
-                      text: 'Aprovado - Você acertou 18 de 20 questões (90%).',
-                      background: Color(0xFFB5F7B5),
-                      foreground: Color(0xFF22A852)),
-              ])),
-          const SizedBox(width: 7),
-          const PextAssetIcon(PextAssets.heartActive, size: 22),
-        ]));
-  }
-}
-
-class _FavoriteAction extends StatelessWidget {
-  final String label;
-  final bool outlined;
-  const _FavoriteAction({required this.label, required this.outlined});
-  @override
-  Widget build(BuildContext context) => SizedBox(
-      height: 23,
-      child: outlined
-          ? OutlinedButton(
-              onPressed: () {},
-              style: OutlinedButton.styleFrom(
-                  minimumSize: Size.zero,
-                  padding: const EdgeInsets.symmetric(horizontal: 6),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  side: const BorderSide(color: Color(0xFFEF4444))),
-              child: Text(label,
-                  style:
-                      const TextStyle(color: Color(0xFFEF4444), fontSize: 7)))
-          : FilledButton(
-              onPressed: () {},
-              style: FilledButton.styleFrom(
-                  minimumSize: Size.zero,
-                  padding: const EdgeInsets.symmetric(horizontal: 6),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  backgroundColor: _blue),
-              child: Text(label, style: const TextStyle(fontSize: 7))));
-}
-
-class _FavoriteTrainingAlert extends StatelessWidget {
-  final String asset, text;
-  final Color background, foreground;
-  const _FavoriteTrainingAlert(
-      {required this.asset,
-      required this.text,
-      required this.background,
-      required this.foreground});
-  @override
-  Widget build(BuildContext context) => Container(
-      margin: const EdgeInsets.only(top: 7),
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-      decoration: BoxDecoration(
-          color: background, borderRadius: BorderRadius.circular(7)),
-      child: Row(children: [
-        PextAssetIcon(asset, size: 12),
-        const SizedBox(width: 4),
-        Expanded(
-            child: Text(text,
-                style: TextStyle(
-                    color: foreground,
-                    fontSize: 6,
-                    fontWeight: FontWeight.w600)))
-      ]));
-}
-
-class FavoriteTermCard extends StatelessWidget {
-  final String initials;
-  final Color color;
-  const FavoriteTermCard(
-      {super.key, required this.initials, required this.color});
-  @override
-  Widget build(BuildContext context) => Container(
-      margin: const EdgeInsets.only(bottom: 7),
-      padding: const EdgeInsets.all(9),
-      decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border.all(color: _line),
-          borderRadius: BorderRadius.circular(16)),
-      child: Row(children: [
-        Container(
-            width: 48,
-            height: 48,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-                border: Border.all(color: const Color(0xFF8B9099), width: 1.5),
-                borderRadius: BorderRadius.circular(12)),
-            child: Text(initials,
-                style: TextStyle(
-                    color: color, fontSize: 21, fontWeight: FontWeight.bold))),
-        const SizedBox(width: 10),
-        const Expanded(
-            child:
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('PEBD',
-              style: TextStyle(
-                  color: _blue, fontSize: 17, fontWeight: FontWeight.bold)),
-          Text('Polietileno de Baixa Densidade',
-              style: TextStyle(color: Color(0xFF6B7280), fontSize: 9))
-        ])),
-        const PextAssetIcon(PextAssets.heartActive, size: 25)
-      ]));
+      padding: EdgeInsets.only(top: 8, bottom: 8),
+      child: Divider(height: 1, thickness: 1, color: Color(0xFFE5E7EB)));
 }
 
 class SimpleListPage extends StatelessWidget {
@@ -1416,37 +1779,86 @@ class _DashboardProblems extends StatelessWidget {
       ]);
 }
 
-class _DashboardTraining extends StatelessWidget {
+class _DashboardTraining extends StatefulWidget {
   const _DashboardTraining();
 
   @override
-  Widget build(BuildContext context) => const Column(children: [
-        _DashboardMetricGrid(compact: true, metrics: [
-          _DashboardMetric(
-              'Total de Treinamentos', '128', '8,3%', Color(0xFF0B4AA0), true),
-          _DashboardMetric(
-              'Em andamento', '97', '2%', Color(0xFFF2A400), false),
-          _DashboardMetric('Concluídos', '32', '1,3%', Color(0xFF1CBF66), true),
-        ]),
-        SizedBox(height: 20),
-        _DashboardSectionTitle('Conclusão por treinamento'),
-        SizedBox(height: 10),
-        _DashboardProgressCard(items: [
-          ('Processo de extrusão', 46),
-          ('Segurança Operacional', 26),
-          ('Boas Práticas de Produção', 15),
-          ('Iorgute', 32),
-          ('Saco Pão Pulma', 63),
-        ]),
-        SizedBox(height: 20),
-        _DashboardSectionTitle('Situação dos usuários'),
-        SizedBox(height: 10),
-        _DashboardDonutCard(training: true),
-        SizedBox(height: 20),
-        _DashboardSectionTitle('Aprovação Média nas avaliações'),
-        SizedBox(height: 10),
-        _DashboardApprovalCard(),
-      ]);
+  State<_DashboardTraining> createState() => _DashboardTrainingState();
+}
+
+class _DashboardTrainingState extends State<_DashboardTraining> {
+  Map<String, dynamic> _stats = {};
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final res = await ApiClient.instance.getTrainingAnalytics();
+      if (mounted) setState(() { _stats = res; _loading = false; });
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final totalTrainings = _stats['totalTrainings'] ?? 128;
+    final inProgress = _stats['trainingsInProgress'] ?? 97;
+    final finished = _stats['trainingsFinished'] ?? 32;
+    final dropoutRate = (_stats['dropoutRate'] as num?)?.toDouble() ?? 12.5;
+    final failureRate = (_stats['failureRate'] as num?)?.toDouble() ?? 23.4;
+    final approvedPct = (100.0 - failureRate).round().clamp(0, 100);
+    final reprovedPct = failureRate.round().clamp(0, 100);
+    final avgScore = (_stats['averageAssessmentScore'] as num?)?.toDouble() ?? 76.6;
+
+    final rankings = _stats['courseRankings'] as List? ?? [
+      {'name': 'Processo de extrusão', 'percentage': 38},
+      {'name': 'Segurança Operacional', 'percentage': 26},
+      {'name': 'Boas Práticas de Produção', 'percentage': 18},
+      {'name': 'Controle Térmico', 'percentage': 12},
+      {'name': 'Regulagem de Matriz', 'percentage': 8},
+    ];
+
+    final progressItems = rankings.map<(String, int)>((r) {
+      final map = Map<String, dynamic>.from(r as Map);
+      return (map['name']?.toString() ?? 'Curso', (map['percentage'] as num?)?.toInt() ?? 20);
+    }).toList();
+
+    return Column(children: [
+      _DashboardMetricGrid(compact: true, metrics: [
+        _DashboardMetric('Total Treinamentos', '$totalTrainings', '8,3%', const Color(0xFF0B4AA0), true),
+        _DashboardMetric('Em andamento', '$inProgress', '2%', const Color(0xFFF2A400), false),
+        _DashboardMetric('Concluídos', '$finished', '1,3%', const Color(0xFF1CBF66), true),
+        _DashboardMetric('Taxa Desistência', '${dropoutRate.toStringAsFixed(1)}%', '1,1%', const Color(0xFFD93838), false),
+      ]),
+      const SizedBox(height: 20),
+      const _DashboardSectionTitle('Ranking de Cursos (Maior Desistência / Reprovação)'),
+      const SizedBox(height: 10),
+      _DashboardProgressCard(items: progressItems),
+      const SizedBox(height: 20),
+      const _DashboardSectionTitle('Taxa de Aprovação vs Reprovação'),
+      const SizedBox(height: 10),
+      _DashboardDonutCard(
+        customEntries: [
+          ('Aprovados', approvedPct, const Color(0xFF1CBF66)),
+          ('Reprovados', reprovedPct, const Color(0xFFD93838)),
+        ],
+      ),
+      const SizedBox(height: 20),
+      const _DashboardSectionTitle('Situação dos usuários'),
+      const SizedBox(height: 10),
+      const _DashboardDonutCard(training: true),
+      const SizedBox(height: 20),
+      const _DashboardSectionTitle('Média de Acertos nas Avaliações'),
+      const SizedBox(height: 10),
+      _DashboardApprovalCard(score: '${avgScore.toStringAsFixed(1)}%'),
+    ]);
+  }
 }
 
 class _DashboardAssistant extends StatelessWidget {
@@ -1797,23 +2209,25 @@ class _DashboardTimeCard extends StatelessWidget {
 
 class _DashboardDonutCard extends StatelessWidget {
   final bool training;
-  const _DashboardDonutCard({this.training = false});
+  final List<(String, int, Color)>? customEntries;
+  const _DashboardDonutCard({this.training = false, this.customEntries});
   @override
   Widget build(BuildContext context) {
-    final entries = training
-        ? const [
-            ('Concluídos', 45, Color(0xFF2E7CF6)),
-            ('Em andamento', 30, Color(0xFF1CBF66)),
-            ('Não iniciados', 25, Color(0xFFFFC107))
-          ]
-        : const [
-            ('Variação na espessura', 38, Color(0xFF1768DF)),
-            ('Bolhas no filme', 22, Color(0xFF4AA5ED)),
-            ('Marcas de gel', 15, Color(0xFFFFC107)),
-            ('Linhas na superfície', 10, Color(0xFFD93838)),
-            ('Fusão irregular', 8, Color(0xFF9564E8)),
-            ('Outros', 6, Color(0xFF1CBF66))
-          ];
+    final entries = customEntries ??
+        (training
+            ? const [
+                ('Concluídos', 45, Color(0xFF2E7CF6)),
+                ('Em andamento', 30, Color(0xFF1CBF66)),
+                ('Não iniciados', 25, Color(0xFFFFC107))
+              ]
+            : const [
+                ('Variação na espessura', 38, Color(0xFF1768DF)),
+                ('Bolhas no filme', 22, Color(0xFF4AA5ED)),
+                ('Marcas de gel', 15, Color(0xFFFFC107)),
+                ('Linhas na superfície', 10, Color(0xFFD93838)),
+                ('Fusão irregular', 8, Color(0xFF9564E8)),
+                ('Outros', 6, Color(0xFF1CBF66))
+              ]);
     return Container(
         padding: const EdgeInsets.all(16),
         decoration: card(),
@@ -1861,7 +2275,7 @@ class _DonutPainter extends CustomPainter {
     var start = -math.pi / 2;
     final total = values.fold<double>(0, (sum, item) => sum + item.$1);
     for (final value in values) {
-      final sweep = value.$1 / total * math.pi * 2;
+      final sweep = value.$1 / (total > 0 ? total : 1) * math.pi * 2;
       canvas.drawArc(
           rect.deflate(8), start, sweep, true, Paint()..color = value.$2);
       start += sweep;
@@ -1876,22 +2290,23 @@ class _DonutPainter extends CustomPainter {
 }
 
 class _DashboardApprovalCard extends StatelessWidget {
-  const _DashboardApprovalCard();
+  final String score;
+  const _DashboardApprovalCard({this.score = '76,6%'});
   @override
   Widget build(BuildContext context) => Container(
       height: 135,
       padding: const EdgeInsets.all(16),
       decoration: card(),
-      child: const Row(children: [
+      child: Row(children: [
         Expanded(
             child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-              Text('76,6%',
-                  style: TextStyle(fontSize: 36, fontWeight: FontWeight.bold)),
-              Row(children: [
-                Icon(Icons.arrow_drop_down, color: Color(0xFF1CBF66)),
+              Text(score,
+                  style: const TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: _blue)),
+              const Row(children: [
+                Icon(Icons.arrow_drop_up, color: Color(0xFF1CBF66)),
                 Text('8,3%',
                     style: TextStyle(
                         color: Color(0xFF1CBF66), fontWeight: FontWeight.bold)),
@@ -1900,7 +2315,7 @@ class _DashboardApprovalCard extends StatelessWidget {
                     style: TextStyle(fontSize: 9, color: Color(0xFF7A8290)))
               ])
             ])),
-        Expanded(
+        const Expanded(
             child: _DashboardChart(height: 88, lines: [
           _ChartLine(Color(0xFF1768DF), [25, 52, 76, 49, 63, 90, 58])
         ]))
