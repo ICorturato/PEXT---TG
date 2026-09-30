@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/scheduler.dart';
 import 'api_client.dart';
 
 class FavoritesNotifier extends ChangeNotifier {
@@ -21,6 +22,20 @@ class FavoritesNotifier extends ChangeNotifier {
   bool isFavorited(String id) => _favoritedItemIds.contains(id);
   bool isFavorite(String id) => _favoritedItemIds.contains(id);
 
+  /// Safely calls [notifyListeners]. If the Flutter pipeline is currently
+  /// building (scheduler phase != idle/postFrameCallbacks), defers the call
+  /// to the next post-frame callback to avoid "setState called during build".
+  void _safeNotify() {
+    final phase = SchedulerBinding.instance.schedulerPhase;
+    if (phase == SchedulerPhase.persistentCallbacks ||
+        phase == SchedulerPhase.transientCallbacks ||
+        phase == SchedulerPhase.midFrameMicrotasks) {
+      SchedulerBinding.instance.addPostFrameCallback((_) => notifyListeners());
+    } else {
+      notifyListeners();
+    }
+  }
+
   bool mockNetworkSuccessInTest = false;
 
   void setFavoritesForTest({
@@ -36,12 +51,12 @@ class FavoritesNotifier extends ChangeNotifier {
     _trainings = List.from(trainings);
     _resins = List.from(resins);
     mockNetworkSuccessInTest = mockNetwork;
-    notifyListeners();
+    _safeNotify();
   }
 
   Future<void> loadFavorites() async {
     _isLoading = true;
-    notifyListeners();
+    _safeNotify();
 
     try {
       final data = await ApiClient.instance.getFavorites();
@@ -81,7 +96,7 @@ class FavoritesNotifier extends ChangeNotifier {
       debugPrint('Error loading favorites: $e');
     } finally {
       _isLoading = false;
-      notifyListeners();
+      _safeNotify();
     }
   }
 
@@ -110,7 +125,7 @@ class FavoritesNotifier extends ChangeNotifier {
         if (entityType == 'RESIN') _resins.add(itemData);
       }
     }
-    notifyListeners();
+    _safeNotify();
 
     if (mockNetworkSuccessInTest) {
       return !wasFavorited;
@@ -132,7 +147,7 @@ class FavoritesNotifier extends ChangeNotifier {
         _trainings.removeWhere((t) => t['id']?.toString() == entityId);
         _resins.removeWhere((r) => r['id']?.toString() == entityId);
       }
-      notifyListeners();
+      _safeNotify();
       return isFav;
     } catch (e) {
       // Revert optimistic update on failure
@@ -141,7 +156,7 @@ class FavoritesNotifier extends ChangeNotifier {
       } else {
         _favoritedItemIds.remove(entityId);
       }
-      notifyListeners();
+      _safeNotify();
       debugPrint('Error toggling favorite: $e');
       return wasFavorited;
     }
