@@ -102,66 +102,68 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-        body: SafeArea(
-          child: SingleChildScrollView(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                minHeight: MediaQuery.of(context).size.height -
-                    MediaQuery.of(context).padding.top -
-                    MediaQuery.of(context).padding.bottom,
+  Widget build(BuildContext context) {
+    final mq = MediaQuery.of(context);
+    return Scaffold(
+      body: SafeArea(
+        child: SingleChildScrollView(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minHeight: mq.size.height - mq.padding.top - mq.padding.bottom,
+            ),
+            child: IntrinsicHeight(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 50),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Spacer(flex: 3),
+                    const PextLogo(),
+                    const Spacer(flex: 3),
+                    FieldLabel('E-mail',
+                        hint: 'admin@pext.local', controller: _email),
+                    const SizedBox(height: 6),
+                    FieldLabel('Password',
+                        hint: 'Enter your password',
+                        obscure: true,
+                        controller: _password),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: () {},
+                        child: const Text('Recuperar senha',
+                            style: TextStyle(fontSize: 11)),
+                      ),
+                    ),
+                    const Spacer(flex: 2),
+                    FilledButton(
+                      onPressed: _loading ? null : _login,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFF17459A),
+                        minimumSize: const Size.fromHeight(55),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14)),
+                      ),
+                      child: _loading
+                          ? const SizedBox(
+                              height: 24,
+                              width: 24,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2, color: Colors.white))
+                          : const Text('ENTRAR',
+                              style: TextStyle(
+                                  fontSize: 25, fontWeight: FontWeight.bold)),
+                    ),
+                    const Spacer(flex: 3),
+                  ],
+                ),
               ),
-              child: IntrinsicHeight(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 50),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      const Spacer(flex: 3),
-                const PextLogo(),
-                const Spacer(flex: 3),
-                FieldLabel('E-mail',
-                    hint: 'admin@pext.local', controller: _email),
-                const SizedBox(height: 6),
-                FieldLabel('Password',
-                    hint: 'Enter your password',
-                    obscure: true,
-                    controller: _password),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton(
-                    onPressed: () {},
-                    child: const Text('Recuperar senha',
-                        style: TextStyle(fontSize: 11)),
-                  ),
-                ),
-                const Spacer(flex: 2),
-                FilledButton(
-                  onPressed: _loading ? null : _login,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFF17459A),
-                    minimumSize: const Size.fromHeight(55),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14)),
-                  ),
-                  child: _loading
-                      ? const SizedBox(
-                          height: 24,
-                          width: 24,
-                          child: CircularProgressIndicator(
-                              strokeWidth: 2, color: Colors.white))
-                      : const Text('ENTRAR',
-                          style: TextStyle(
-                              fontSize: 25, fontWeight: FontWeight.bold)),
-                ),
-                const Spacer(flex: 3),
-              ],
             ),
           ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class PextLogo extends StatelessWidget {
