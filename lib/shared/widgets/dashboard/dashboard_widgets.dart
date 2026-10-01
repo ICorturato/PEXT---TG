@@ -428,13 +428,13 @@ class TimeSeriesLineChartCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    double maxY = 10.0;
+    double highestVal = 0.0;
     for (final s in series) {
       for (final v in s.values) {
-        if (v > maxY) maxY = v;
+        if (v > highestVal) highestVal = v;
       }
     }
-    maxY = (maxY * 1.15).ceilToDouble();
+    final maxY = highestVal > 0 ? (highestVal * 1.2).ceilToDouble() : 5.0;
 
     final lineBars = series.map((s) {
       final spots = <FlSpot>[];
@@ -460,6 +460,11 @@ class TimeSeriesLineChartCard extends StatelessWidget {
         ),
       );
     }).toList();
+
+    final count = series.isNotEmpty && series.first.values.isNotEmpty
+        ? series.first.values.length
+        : labels.length;
+    final interval = count > 10 ? (count / 5).floorToDouble() : 1.0;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -531,11 +536,34 @@ class TimeSeriesLineChartCard extends StatelessWidget {
                     strokeWidth: 1,
                   ),
                 ),
-                titlesData: const FlTitlesData(
-                  leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                titlesData: FlTitlesData(
+                  leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: labels.isNotEmpty,
+                      reservedSize: 22,
+                      interval: interval > 0 ? interval : 1.0,
+                      getTitlesWidget: (value, meta) {
+                        final idx = value.toInt();
+                        if (idx < 0 || idx >= labels.length) {
+                          return const SizedBox.shrink();
+                        }
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Text(
+                            labels[idx],
+                            style: const TextStyle(
+                              color: Color(0xFF94A3B8),
+                              fontSize: 9,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
                 ),
                 borderData: FlBorderData(show: false),
                 lineBarsData: lineBars,

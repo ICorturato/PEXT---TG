@@ -1,4 +1,7 @@
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/scheduler.dart';
 import 'api_client.dart';
 
 class ChatSession {
@@ -58,7 +61,9 @@ class ChatSession {
 
 class ChatService extends ChangeNotifier {
   static final ChatService instance = ChatService._internal();
-  ChatService._internal();
+  ChatService._internal() {
+    loadLocalCache();
+  }
 
   bool _isProcessing = false;
   bool get isProcessing => _isProcessing;
@@ -66,7 +71,80 @@ class ChatService extends ChangeNotifier {
   final List<ChatSession> _sessions = [];
   List<ChatSession> get sessions => List.unmodifiable(_sessions);
 
+  bool _loadedFromDisk = false;
+  bool get loadedFromDisk => _loadedFromDisk;
+
+  void _safeNotify() {
+    final phase = SchedulerBinding.instance.schedulerPhase;
+    if (phase == SchedulerPhase.persistentCallbacks ||
+        phase == SchedulerPhase.transientCallbacks ||
+        phase == SchedulerPhase.midFrameMicrotasks) {
+      SchedulerBinding.instance.addPostFrameCallback((_) => notifyListeners());
+    } else {
+      notifyListeners();
+    }
+  }
+
+  File? _getCacheFile() {
+    try {
+      final tempDir = Directory.systemTemp;
+      return File('${tempDir.path}/pext_chat_sessions.json');
+    } catch (_) {
+      return null;
+    }
+  }
+
+  void loadLocalCache() {
+    try {
+      final file = _getCacheFile();
+      if (file != null && file.existsSync()) {
+        final content = file.readAsStringSync();
+        if (content.isNotEmpty) {
+          final decoded = jsonDecode(content);
+          if (decoded is List) {
+            _sessions.clear();
+            for (final item in decoded) {
+              if (item is Map) {
+                _sessions.add(ChatSession.fromJson(Map<String, dynamic>.from(item)));
+              }
+            }
+            _sessions.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+            _loadedFromDisk = true;
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading chat sessions cache: $e');
+    }
+  }
+
+  void _saveLocalCache() {
+    try {
+      final file = _getCacheFile();
+      if (file != null) {
+        final data = _sessions.map((s) => s.toJson()).toList();
+        file.writeAsStringSync(jsonEncode(data), flush: true);
+      }
+    } catch (e) {
+      debugPrint('Error saving chat sessions cache: $e');
+    }
+  }
+
+  void setSessionsForTest(List<ChatSession> items) {
+    _sessions.clear();
+    _sessions.addAll(items);
+    _safeNotify();
+  }
+
   Future<void> fetchSessions() async {
+    // First ensure local cache is loaded if in-memory list is empty
+    if (_sessions.isEmpty && !_loadedFromDisk) {
+      loadLocalCache();
+      if (_sessions.isNotEmpty) {
+        _safeNotify();
+      }
+    }
+
     try {
       final list = await ApiClient.instance.getChatSessions();
       _sessions.clear();
@@ -74,8 +152,15 @@ class ChatService extends ChangeNotifier {
         _sessions.add(ChatSession.fromJson(item));
       }
       _sessions.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
-      notifyListeners();
-    } catch (_) {}
+      _saveLocalCache();
+      _safeNotify();
+    } catch (_) {
+      // If remote fetch fails (e.g. offline), local cache remains available
+      if (_sessions.isEmpty) {
+        loadLocalCache();
+        _safeNotify();
+      }
+    }
   }
 
   Future<void> saveSession(ChatSession session) async {
@@ -86,7 +171,8 @@ class ChatService extends ChangeNotifier {
       _sessions.insert(0, session);
     }
     _sessions.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
-    notifyListeners();
+    _saveLocalCache();
+    _safeNotify();
 
     try {
       await ApiClient.instance.saveChatSession(session.toJson());
@@ -95,7 +181,8 @@ class ChatService extends ChangeNotifier {
 
   Future<void> deleteSession(String id) async {
     _sessions.removeWhere((s) => s.id == id);
-    notifyListeners();
+    _saveLocalCache();
+    _safeNotify();
 
     try {
       await ApiClient.instance.deleteChatSession(id);
@@ -105,7 +192,8 @@ class ChatService extends ChangeNotifier {
   Future<void> clearAllSessions() async {
     final copy = List<ChatSession>.from(_sessions);
     _sessions.clear();
-    notifyListeners();
+    _saveLocalCache();
+    _safeNotify();
 
     for (final s in copy) {
       try {
@@ -121,7 +209,7 @@ class ChatService extends ChangeNotifier {
     List<Map<String, dynamic>>? history,
   }) async {
     _isProcessing = true;
-    notifyListeners();
+    _safeNotify();
 
     try {
       final response =
@@ -129,7 +217,7 @@ class ChatService extends ChangeNotifier {
       return response;
     } finally {
       _isProcessing = false;
-      notifyListeners();
+      _safeNotify();
     }
   }
 }

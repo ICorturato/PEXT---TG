@@ -70,7 +70,8 @@ class DoubtService extends ChangeNotifier {
     if (index != -1) {
       final current = _doubts[index];
       final updatedMsgs = List<DoubtMessage>.from(current.messages)..add(message);
-      final newStatus = message.isAdmin ? 'RESPONDIDO' : current.status;
+      // Reopen or move to IN_PROGRESS
+      final newStatus = 'IN_PROGRESS';
       _doubts[index] = current.copyWith(
         messages: updatedMsgs,
         status: newStatus,
@@ -78,6 +79,23 @@ class DoubtService extends ChangeNotifier {
       notifyListeners();
     }
     return message;
+  }
+
+  Future<DoubtModel> resolveDoubt(String doubtId) => finalizeDoubt(doubtId);
+
+  Future<DoubtModel> finalizeDoubt(String doubtId) async {
+    final payload = await ApiClient.instance.postRaw('/doubts/$doubtId/finalize', {});
+    final doubtData = payload['doubt'] != null && payload['doubt'] is Map
+        ? Map<String, dynamic>.from(payload['doubt'] as Map)
+        : null;
+    final updatedModel = doubtData != null ? DoubtModel.fromJson(doubtData) : null;
+    final index = _doubts.indexWhere((d) => d.id == doubtId);
+    if (index != -1) {
+      _doubts[index] = updatedModel ?? _doubts[index].copyWith(status: 'FINALIZADO');
+      notifyListeners();
+      return _doubts[index];
+    }
+    return updatedModel ?? DoubtModel.fromJson(payload);
   }
 
   Future<Map<String, dynamic>> askChat(String query) async {

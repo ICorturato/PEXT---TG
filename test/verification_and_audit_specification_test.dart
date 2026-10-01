@@ -13,31 +13,13 @@ void main() {
 
   group('1. Verification Parameters UI in Chat (VerificationParametersCard)', () {
     test('Strongly-typed deserialization of verificationData into VerificationParameterItem', () {
-      final json = {
-        'packagingId': 'RAP10 Especial',
-        'parameters': [
-          {
-            'parameterName': 'Temperatura do cilindro',
-            'target': '160.0 - 180.0 °C',
-            'measuredValue': '155.0 °C',
-            'deviation': '-5.0 °C',
-          },
-          {
-            'parameterName': 'Velocidade da linha',
-            'target': '20.0 - 30.0 m/min',
-            'measuredValue': '25.0 m/min',
-            'deviation': '0.0 m/min',
-          },
-        ],
-      };
-
-      const doubt = DoubtModel(
-        id: 'd1',
-        userId: 'u1',
-        userName: 'Operador Teste',
-        question: 'Problema reportado: Bolhas no filme',
-        createdAt: '30/09/2026',
-        verificationData: {
+      final testJson = {
+        'id': 'd1',
+        'userId': 'u1',
+        'userName': 'Operador Teste',
+        'question': 'Problema reportado: Bolhas no filme',
+        'createdAt': '30/09/2026',
+        'verificationData': {
           'packagingId': 'RAP10 Especial',
           'parameters': [
             {
@@ -54,7 +36,9 @@ void main() {
             },
           ],
         },
-      );
+      };
+
+      final doubt = DoubtModel.fromJson(testJson);
 
       final params = doubt.parsedVerificationParameters;
       expect(params.length, 2);

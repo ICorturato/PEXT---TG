@@ -55,6 +55,7 @@ class FavoritesNotifier extends ChangeNotifier {
   }
 
   Future<void> loadFavorites() async {
+    if (mockNetworkSuccessInTest) return;
     _isLoading = true;
     _safeNotify();
 

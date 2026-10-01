@@ -596,6 +596,263 @@ class _NewUserModalState extends State<_NewUserModal> {
       );
 }
 
+class _EditUserModal extends StatefulWidget {
+  final Map<String, dynamic> user;
+  const _EditUserModal({required this.user});
+
+  @override
+  State<_EditUserModal> createState() => _EditUserModalState();
+}
+
+class _EditUserModalState extends State<_EditUserModal> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _nameController;
+  late final TextEditingController _emailController;
+  late final TextEditingController _passwordController;
+  late final TextEditingController _phoneController;
+  late final TextEditingController _addressController;
+  late final TextEditingController _cargoController;
+  late String _role;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final u = widget.user;
+    _nameController = TextEditingController(text: u['name']?.toString() ?? '');
+    _emailController = TextEditingController(text: u['email']?.toString() ?? '');
+    _passwordController = TextEditingController();
+    _phoneController = TextEditingController(text: u['phone']?.toString() ?? '');
+    _addressController = TextEditingController(text: u['address']?.toString() ?? '');
+    _cargoController = TextEditingController(
+        text: u['cargo']?.toString() ?? u['jobTitle']?.toString() ?? 'Operador de Extrusão');
+    _role = (u['role']?.toString().toUpperCase() == 'ADMIN') ? 'ADMIN' : 'USER';
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    _phoneController.dispose();
+    _addressController.dispose();
+    _cargoController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _saving = true);
+    final userId = widget.user['id']?.toString() ?? '';
+    try {
+      await ApiClient.instance.updateAdminUser(
+        userId,
+        name: _nameController.text.trim(),
+        email: _emailController.text.trim(),
+        password: _passwordController.text.trim().isNotEmpty
+            ? _passwordController.text.trim()
+            : null,
+        phone: _phoneController.text.trim().isNotEmpty
+            ? _phoneController.text.trim()
+            : null,
+        address: _addressController.text.trim().isNotEmpty
+            ? _addressController.text.trim()
+            : null,
+        cargo: _cargoController.text.trim().isNotEmpty
+            ? _cargoController.text.trim()
+            : null,
+        role: _role,
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                'Usuário "${_nameController.text.trim()}" atualizado com sucesso!'),
+            backgroundColor: const Color(0xFF22C55E),
+          ),
+        );
+        Navigator.pop(context, true);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _saving = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao atualizar usuário: $e'),
+            backgroundColor: const Color(0xFFEF4444),
+          ),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: EdgeInsets.only(
+        left: 20,
+        right: 20,
+        top: 20,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+      ),
+      child: Form(
+        key: _formKey,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFD1D5DB),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Editar Dados do Usuário',
+                style: TextStyle(
+                  color: _blue,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'Altere as informações cadastrais e permissões do usuário.',
+                style: TextStyle(color: Color(0xFF6B7280), fontSize: 12),
+              ),
+              const SizedBox(height: 16),
+
+              // Nome Completo
+              TextFormField(
+                controller: _nameController,
+                decoration: _inputDeco('Nome Completo *', Icons.person_outline),
+                validator: (val) => val == null || val.trim().isEmpty
+                    ? 'Informe o nome completo'
+                    : null,
+              ),
+              const SizedBox(height: 12),
+
+              // E-mail
+              TextFormField(
+                controller: _emailController,
+                keyboardType: TextInputType.emailAddress,
+                decoration: _inputDeco('E-mail *', Icons.email_outlined),
+                validator: (val) {
+                  if (val == null || val.trim().isEmpty) return 'Informe o e-mail';
+                  if (!val.contains('@')) return 'E-mail inválido';
+                  return null;
+                },
+              ),
+              const SizedBox(height: 12),
+
+              // Nova Senha (opcional)
+              TextFormField(
+                controller: _passwordController,
+                obscureText: true,
+                decoration: _inputDeco(
+                    'Nova Senha (deixe em branco para manter)', Icons.lock_outline),
+              ),
+              const SizedBox(height: 12),
+
+              // Telefone
+              TextFormField(
+                controller: _phoneController,
+                keyboardType: TextInputType.phone,
+                decoration:
+                    _inputDeco('Telefone', Icons.phone_outlined),
+              ),
+              const SizedBox(height: 12),
+
+              // Endereço
+              TextFormField(
+                controller: _addressController,
+                decoration: _inputDeco(
+                    'Endereço', Icons.location_on_outlined),
+              ),
+              const SizedBox(height: 12),
+
+              // Função / Cargo
+              TextFormField(
+                controller: _cargoController,
+                decoration:
+                    _inputDeco('Função / Cargo', Icons.badge_outlined),
+              ),
+              const SizedBox(height: 12),
+
+              // Perfil de Acesso
+              DropdownButtonFormField<String>(
+                value: _role,
+                decoration: _inputDeco('Nível de Permissão', Icons.security),
+                items: const [
+                  DropdownMenuItem(value: 'USER', child: Text('Operador')),
+                  DropdownMenuItem(value: 'ADMIN', child: Text('Administrador')),
+                ],
+                onChanged: (val) => setState(() => _role = val ?? 'USER'),
+              ),
+              const SizedBox(height: 20),
+
+              // Submit Button
+              FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: _blue,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                ),
+                onPressed: _saving ? null : _submit,
+                child: _saving
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                            color: Colors.white, strokeWidth: 2),
+                      )
+                    : const Text(
+                        'SALVAR ALTERAÇÕES',
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 15),
+                      ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  InputDecoration _inputDeco(String label, IconData icon) => InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon, color: _blue, size: 20),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: _border),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: _border),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: _blue, width: 1.5),
+        ),
+        filled: true,
+        fillColor: _canvas,
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      );
+}
+
 class AdminUserDetailScreen extends StatefulWidget {
   final String userId;
   final Map<String, dynamic>? initialData;
@@ -618,6 +875,7 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
   void initState() {
     super.initState();
     _user = widget.initialData;
+    _loading = widget.initialData == null;
     _fetchDetails();
   }
 
@@ -632,6 +890,19 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
       }
     } catch (_) {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _openEditUserModal() async {
+    if (_user == null) return;
+    final updated = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _EditUserModal(user: _user!),
+    );
+    if (updated == true && mounted) {
+      _fetchDetails();
     }
   }
 
@@ -653,6 +924,7 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
 
     int completedCount = 0;
     int inProgressCount = 0;
+    int reprovadosCount = 0;
     int droppedCount = 0;
     int notStartedCount = 0;
     int totalQuestionsSum = 0;
@@ -666,12 +938,19 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
       final score = (map['score'] as num?)?.toDouble();
       final passingGrade = (map['passingGrade'] as num?)?.toDouble() ?? 70.0;
       final rawAttempts = (map['attempts'] as num?)?.toInt() ?? (score != null ? 1 : 0);
+      final assessmentStatus = map['assessmentStatus']?.toString().toUpperCase() ?? '';
 
-      if (status.contains('CONCLU') || (score != null && score >= passingGrade)) {
-        completedCount++;
-      } else if (status.contains('DESIST')) {
+      final isFailed = status.contains('REPROV') || assessmentStatus.contains('REPROV') || (score != null && score < passingGrade);
+      final isDropped = status.contains('DESIST') || status == 'DROPPED';
+      final isApproved = (status.contains('CONCLU') || status.contains('APROV') || assessmentStatus.contains('APROV')) && (score == null || score >= passingGrade);
+
+      if (isFailed) {
+        reprovadosCount++;
+      } else if (isDropped) {
         droppedCount++;
-      } else if (status.contains('CURSO') || status.contains('ANDAMENTO')) {
+      } else if (isApproved) {
+        completedCount++;
+      } else if (status.contains('CURSO') || status.contains('ANDAMENTO') || ((map['progressPercentage'] as num?)?.toDouble() ?? 0) > 0) {
         inProgressCount++;
       } else {
         notStartedCount++;
@@ -690,9 +969,10 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
       }
     }
 
-    final totalStatusCount = completedCount + inProgressCount + droppedCount + notStartedCount;
+    final totalStatusCount = completedCount + inProgressCount + reprovadosCount + droppedCount + notStartedCount;
     final double completedPct = totalStatusCount > 0 ? (completedCount / totalStatusCount) * 100 : 0.0;
     final double inProgressPct = totalStatusCount > 0 ? (inProgressCount / totalStatusCount) * 100 : 0.0;
+    final double reprovadosPct = totalStatusCount > 0 ? (reprovadosCount / totalStatusCount) * 100 : 0.0;
     final double droppedPct = totalStatusCount > 0 ? (droppedCount / totalStatusCount) * 100 : 0.0;
 
     final double accuracyRate = totalQuestionsSum > 0
@@ -716,11 +996,17 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
           percentage: inProgressPct,
           color: const Color(0xFFD97706),
         ),
+      if (reprovadosCount > 0)
+        DonutSliceData(
+          label: 'Reprovados',
+          percentage: reprovadosPct,
+          color: const Color(0xFFDC2626),
+        ),
       if (droppedCount > 0)
         DonutSliceData(
           label: 'Desistências',
           percentage: droppedPct,
-          color: const Color(0xFFDC2626),
+          color: const Color(0xFFEA580C),
         ),
     ];
 
@@ -738,6 +1024,21 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
             fontWeight: FontWeight.bold,
           ),
         ),
+        actions: [
+          TextButton.icon(
+            onPressed: _openEditUserModal,
+            icon: const Icon(Icons.edit_outlined, size: 18, color: _blue),
+            label: const Text(
+              'EDITAR',
+              style: TextStyle(
+                color: _blue,
+                fontWeight: FontWeight.bold,
+                fontSize: 12,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+        ],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator(color: _blue))
@@ -895,6 +1196,7 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
                   ),
                   const SizedBox(height: 16),
                 ],
+
 
                 // Enrolled Courses List
                 if (enrolledTrainings.isEmpty)

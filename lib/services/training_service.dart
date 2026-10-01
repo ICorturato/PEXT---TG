@@ -125,16 +125,32 @@ class TrainingService extends ChangeNotifier {
 
   List<TrainingModel> get inProgressTrainings => _trainings
       .where((t) =>
-          t.isEnrolled &&
+          (t.isEnrolled || t.isDefaultForAllUsers || t.isObrigatorio) &&
           !t.areAllModulesCompleted &&
+          !t.isApproved &&
           t.enrollmentStatus != 'DROPPED')
       .toList();
 
   List<TrainingModel> get readyForAssessmentTrainings => _trainings
       .where((t) =>
-          t.isEnrolled &&
+          (t.isEnrolled || t.isDefaultForAllUsers || t.isObrigatorio) &&
           t.areAllModulesCompleted &&
-          t.enrollmentStatus != 'CONCLUIDO' &&
+          !t.isApproved &&
+          !t.isFailed &&
+          t.enrollmentStatus != 'DROPPED')
+      .toList();
+
+  List<TrainingModel> get failedTrainings => _trainings
+      .where((t) =>
+          (t.isEnrolled || t.isDefaultForAllUsers || t.isObrigatorio) &&
+          t.isFailed &&
+          t.enrollmentStatus != 'DROPPED')
+      .toList();
+
+  List<TrainingModel> get approvedTrainings => _trainings
+      .where((t) =>
+          (t.isEnrolled || t.isDefaultForAllUsers || t.isObrigatorio) &&
+          t.isApproved &&
           t.enrollmentStatus != 'DROPPED')
       .toList();
 
@@ -143,7 +159,11 @@ class TrainingService extends ChangeNotifier {
       .toList();
 
   List<TrainingModel> get availableTrainings => _trainings
-      .where((t) => !t.isEnrolled && t.enrollmentStatus != 'DROPPED')
+      .where((t) =>
+          !t.isEnrolled &&
+          !t.isDefaultForAllUsers &&
+          !t.isObrigatorio &&
+          t.enrollmentStatus != 'DROPPED')
       .toList();
 
   Future<void> enroll(String id) async {

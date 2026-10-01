@@ -136,7 +136,21 @@ class DoubtModel {
     this.messages = const [],
   });
 
-  bool get isAnswered => status == 'RESPONDIDO';
+  bool get isFinalized =>
+      status.toUpperCase() == 'FINALIZADO' ||
+      status.toUpperCase() == 'RESOLVED' ||
+      status.toUpperCase() == 'CONCLUIDO' ||
+      status.toUpperCase() == 'CONCLUÍDO';
+
+  bool get isInProgress =>
+      status.toUpperCase() == 'IN_PROGRESS' ||
+      status.toUpperCase() == 'EM_ANDAMENTO' ||
+      status.toUpperCase() == 'RESPONDIDO' ||
+      status.toUpperCase() == 'RESPONDIDA';
+
+  bool get isOpen => !isFinalized && !isInProgress;
+
+  bool get isAnswered => isInProgress || isFinalized;
 
   List<VerificationParameterItem> get parsedVerificationParameters {
     if (verificationData == null) return const [];

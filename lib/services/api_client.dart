@@ -357,6 +357,17 @@ class ApiClient {
     return _payload(response);
   }
 
+  Future<Map<String, dynamic>> resolveProblemBySystem(
+      String diagnosticLogId) async {
+    final response = await http
+        .patch(
+            Uri.parse(
+                '$baseUrl/problems/logs/$diagnosticLogId/resolve-system'),
+            headers: _headers)
+        .timeout(const Duration(seconds: 10));
+    return _payload(response);
+  }
+
   Future<Map<String, dynamic>> getRaw(String path) async {
     final response = await _get(path);
     return _payload(response);
@@ -530,15 +541,19 @@ class ApiClient {
 
   Future<Map<String, dynamic>> submitAssessment(
     String trainingId, {
-    required int score,
-    required int correctCount,
-    required int totalCount,
+    int? score,
+    int? correctCount,
+    int? totalCount,
+    List<Map<String, dynamic>>? answers,
+    List<String>? wrongModuleIds,
   }) async {
     return postRaw('/trainings/$trainingId/assessment/submit', {
-      'score': score,
-      'scorePercentage': score,
-      'correctCount': correctCount,
-      'totalCount': totalCount,
+      if (score != null) 'score': score,
+      if (score != null) 'scorePercentage': score,
+      if (correctCount != null) 'correctCount': correctCount,
+      if (totalCount != null) 'totalCount': totalCount,
+      if (answers != null) 'answers': answers,
+      if (wrongModuleIds != null) 'wrongModuleIds': wrongModuleIds,
     });
   }
 
@@ -576,6 +591,43 @@ class ApiClient {
     });
   }
 
+  Future<Map<String, dynamic>> updateAdminUser(
+    String id, {
+    String? name,
+    String? email,
+    String? password,
+    String? phone,
+    String? address,
+    String? cargo,
+    String? role,
+  }) async {
+    return putRaw('/admin/users/$id', {
+      if (name != null) 'name': name,
+      if (email != null) 'email': email,
+      if (password != null && password.isNotEmpty) 'password': password,
+      if (phone != null) 'phone': phone,
+      if (address != null) 'address': address,
+      if (cargo != null) 'cargo': cargo,
+      if (role != null) 'role': role,
+    });
+  }
+
+  Future<Map<String, dynamic>> forgotPassword(String email) async {
+    return postRaw('/auth/forgot-password', {'email': email});
+  }
+
+  Future<Map<String, dynamic>> resetPassword({
+    required String email,
+    required String code,
+    required String newPassword,
+  }) async {
+    return postRaw('/auth/reset-password', {
+      'email': email,
+      'code': code,
+      'newPassword': newPassword,
+    });
+  }
+
   Future<Map<String, dynamic>> getTrainingAnalytics() async {
     return getRaw('/dashboard/stats');
   }
@@ -596,13 +648,26 @@ class ApiClient {
         if (session.token != null) 'Authorization': 'Bearer ${session.token}',
       };
   Map<String, dynamic> _payload(http.Response response) {
-    final data = response.body.isEmpty
-        ? <String, dynamic>{}
-        : Map<String, dynamic>.from(jsonDecode(response.body) as Map);
-    if (response.statusCode < 200 || response.statusCode >= 300)
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      if (response.body.isNotEmpty) {
+        try {
+          final decoded = jsonDecode(response.body);
+          if (decoded is Map && decoded['error'] != null) {
+            throw ApiException(decoded['error'].toString());
+          }
+        } catch (e) {
+          if (e is ApiException) rethrow;
+        }
+      }
       throw ApiException(
-          data['error']?.toString() ?? 'Unable to contact the API.');
-    return data;
+          'Unable to contact the API (status ${response.statusCode}).');
+    }
+    if (response.body.isEmpty) return <String, dynamic>{};
+    final decoded = jsonDecode(response.body);
+    if (decoded is List) {
+      return {'items': decoded};
+    }
+    return Map<String, dynamic>.from(decoded as Map);
   }
 }
 

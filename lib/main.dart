@@ -1,8 +1,10 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'app_routes.dart';
 import 'features/admin/admin_user_screens.dart';
+import 'features/auth/forgot_password_screen.dart';
 import 'features/core/core_screens.dart';
 import 'features/dashboard/dashboards_screen.dart';
 import 'features/resins/resins_screens.dart';
@@ -130,7 +132,14 @@ class _LoginPageState extends State<LoginPage> {
                     Align(
                       alignment: Alignment.centerRight,
                       child: TextButton(
-                        onPressed: () {},
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const ForgotPasswordScreen(),
+                            ),
+                          );
+                        },
                         child: const Text('Recuperar senha',
                             style: TextStyle(fontSize: 11)),
                       ),
@@ -338,8 +347,15 @@ class HomePage extends StatelessWidget {
   final bool admin;
   const HomePage({super.key, this.admin = false});
   @override
-  Widget build(BuildContext context) => WillPopScope(
-        onWillPop: () => _confirmExit(context),
+  Widget build(BuildContext context) => PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, _) async {
+          if (didPop) return;
+          final shouldExit = await _confirmExit(context);
+          if (shouldExit && context.mounted) {
+            SystemNavigator.pop();
+          }
+        },
         child: AppShell(
           admin: admin,
           body: ListView(
@@ -448,9 +464,15 @@ class _UserProgressState extends State<UserProgress> {
         int completed = 0;
         int inProgress = 0;
         for (final t in trainings) {
-          if (t.areAllModulesCompleted || t.progressPercentage >= 1.0) {
+          if (t.isApproved) {
             completed++;
-          } else if (t.progressPercentage > 0.0) {
+          } else if (t.isEnrolled ||
+              t.isDefaultForAllUsers ||
+              t.isObrigatorio ||
+              t.progressPercentage > 0.0 ||
+              t.isAwaitingAssessment ||
+              t.isFailed ||
+              t.areAllModulesCompleted) {
             inProgress++;
           }
         }
@@ -528,35 +550,201 @@ class ProgressStat extends StatelessWidget {
       ]);
 }
 
-class AdminProgress extends StatelessWidget {
+class AdminProgress extends StatefulWidget {
   const AdminProgress({super.key});
+
+  @override
+  State<AdminProgress> createState() => _AdminProgressState();
+}
+
+class _AdminProgressItem {
+  final String label;
+  final int count;
+  final double percentage;
+  final String percentageFormatted;
+  final Color color;
+
+  const _AdminProgressItem({
+    required this.label,
+    required this.count,
+    required this.percentage,
+    required this.percentageFormatted,
+    required this.color,
+  });
+}
+
+class _AdminProgressState extends State<AdminProgress> {
+  List<_AdminProgressItem> _items = const [
+    _AdminProgressItem(
+      label: '0 Treinamentos',
+      count: 0,
+      percentage: 0.0,
+      percentageFormatted: '0,00%',
+      color: Color(0xFFF8494E),
+    ),
+    _AdminProgressItem(
+      label: '1-2 Treinamentos',
+      count: 0,
+      percentage: 0.0,
+      percentageFormatted: '0,00%',
+      color: Color(0xFF53A7FF),
+    ),
+    _AdminProgressItem(
+      label: '3-4 Treinamentos',
+      count: 0,
+      percentage: 0.0,
+      percentageFormatted: '0,00%',
+      color: Color(0xFFF1A114),
+    ),
+    _AdminProgressItem(
+      label: '5-7 Treinamentos',
+      count: 0,
+      percentage: 0.0,
+      percentageFormatted: '0,00%',
+      color: Color(0xFF22BE62),
+    ),
+    _AdminProgressItem(
+      label: '8+ Treinamentos',
+      count: 0,
+      percentage: 0.0,
+      percentageFormatted: '0,00%',
+      color: _blue,
+    ),
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final analytics = await ApiClient.instance.getAnalytics('overview');
+      final dist = analytics['trainingsPerUser'] as List?;
+      if (dist != null && dist.isNotEmpty && mounted) {
+        setState(() {
+          _items = dist.map((e) {
+            final map = Map<String, dynamic>.from(e as Map);
+            final pct = (map['percentage'] as num? ?? 0).toDouble();
+            final hex = (map['color'] ?? '').toString().replaceAll('#', '');
+            final col = hex.length == 6
+                ? Color(int.parse('FF$hex', radix: 16))
+                : const Color(0xFF2563EB);
+            return _AdminProgressItem(
+              label: map['label']?.toString() ?? '',
+              count: (map['count'] as num? ?? 0).toInt(),
+              percentage: pct,
+              percentageFormatted: map['percentageFormatted']?.toString() ??
+                  '${pct.toStringAsFixed(2).replaceAll('.', ',')}%',
+              color: col,
+            );
+          }).toList();
+        });
+        return;
+      }
+    } catch (_) {}
+
+    try {
+      final users = await ApiClient.instance.getAdminUsers();
+      if (users.isNotEmpty && mounted) {
+        int b0 = 0, b1_2 = 0, b3_4 = 0, b5_7 = 0, b8plus = 0;
+        for (final u in users) {
+          final count = (u['completedCount'] as num? ?? 0).toInt();
+          if (count == 0) {
+            b0++;
+          } else if (count <= 2) {
+            b1_2++;
+          } else if (count <= 4) {
+            b3_4++;
+          } else if (count <= 7) {
+            b5_7++;
+          } else {
+            b8plus++;
+          }
+        }
+        final total = users.length;
+        String formatPct(double pct) =>
+            '${pct.toStringAsFixed(pct.truncateToDouble() == pct ? 0 : 2).replaceAll('.', ',')}%';
+
+        final p0 = (b0 / total) * 100;
+        final p1_2 = (b1_2 / total) * 100;
+        final p3_4 = (b3_4 / total) * 100;
+        final p5_7 = (b5_7 / total) * 100;
+        final p8plus = (b8plus / total) * 100;
+
+        setState(() {
+          _items = [
+            _AdminProgressItem(
+              label: '0 Treinamentos',
+              count: b0,
+              percentage: p0,
+              percentageFormatted: formatPct(p0),
+              color: const Color(0xFFF8494E),
+            ),
+            _AdminProgressItem(
+              label: '1-2 Treinamentos',
+              count: b1_2,
+              percentage: p1_2,
+              percentageFormatted: formatPct(p1_2),
+              color: const Color(0xFF53A7FF),
+            ),
+            _AdminProgressItem(
+              label: '3-4 Treinamentos',
+              count: b3_4,
+              percentage: p3_4,
+              percentageFormatted: formatPct(p3_4),
+              color: const Color(0xFFF1A114),
+            ),
+            _AdminProgressItem(
+              label: '5-7 Treinamentos',
+              count: b5_7,
+              percentage: p5_7,
+              percentageFormatted: formatPct(p5_7),
+              color: const Color(0xFF22BE62),
+            ),
+            _AdminProgressItem(
+              label: '8+ Treinamentos',
+              count: b8plus,
+              percentage: p8plus,
+              percentageFormatted: formatPct(p8plus),
+              color: _blue,
+            ),
+          ];
+        });
+      }
+    } catch (_) {}
+  }
+
   @override
   Widget build(BuildContext context) =>
       Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         const Text('Treinamentos por usuário',
-            style: TextStyle(color: _blue, fontSize: 18)),
+            style: TextStyle(color: _blue, fontSize: 18, fontWeight: FontWeight.w600)),
         const SizedBox(height: 10),
         Container(
             height: 174,
             padding: const EdgeInsets.all(16),
             decoration: card(),
             child: Row(children: [
-              const SizedBox(
+              SizedBox(
                   width: 118,
                   height: 118,
-                  child: CustomPaint(painter: _AdminDonutPainter())),
+                  child: CustomPaint(
+                    painter: _AdminDonutPainter(
+                      values: _items.map((i) => i.percentage).toList(),
+                      colors: _items.map((i) => i.color).toList(),
+                    ),
+                  )),
               const SizedBox(width: 12),
               Expanded(
                   child: Column(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      children: const [
-                    LegendRow(Color(0xFFF8494E), '0 Treinamentos', '12,50%'),
-                    LegendRow(Color(0xFF53A7FF), '1-2 Treinamentos', '12,50%'),
-                    LegendRow(Color(0xFFF1A114), '3-4 Treinamentos', '25%'),
-                    LegendRow(Color(0xFF22BE62), '5-7 Treinamentos', '37,50%'),
-                    LegendRow(_blue, '8+ Treinamentos', '12,50%')
-                  ]))
+                      children: _items
+                          .map((item) => LegendRow(
+                              item.color, item.label, item.percentageFormatted))
+                          .toList()))
             ])),
         const SizedBox(height: 8),
       ]);
@@ -580,34 +768,42 @@ class LegendRow extends StatelessWidget {
 }
 
 class _AdminDonutPainter extends CustomPainter {
-  const _AdminDonutPainter();
+  final List<double> values;
+  final List<Color> colors;
+
+  const _AdminDonutPainter({
+    required this.values,
+    required this.colors,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
-    const values = [.125, .125, .25, .375, .125];
-    const colors = [
-      Color(0xFFF8494E),
-      Color(0xFF53A7FF),
-      Color(0xFFF1A114),
-      Color(0xFF22BE62),
-      _blue,
-    ];
     final rect = Offset.zero & size;
     final paint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 15
       ..strokeCap = StrokeCap.butt;
+
+    final total = values.fold<double>(0.0, (sum, v) => sum + v);
+    if (total <= 0) {
+      paint.color = const Color(0xFFE5E7EB);
+      canvas.drawArc(rect.deflate(8), 0, math.pi * 2, false, paint);
+      return;
+    }
+
     var start = -math.pi / 2;
     for (var index = 0; index < values.length; index++) {
-      final sweep = values[index] * math.pi * 2;
-      paint.color = colors[index];
+      final sweep = (values[index] / total) * math.pi * 2;
+      if (sweep <= 0.0001) continue;
+      paint.color = colors[index % colors.length];
       canvas.drawArc(rect.deflate(8), start, sweep, false, paint);
       start += sweep;
     }
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _AdminDonutPainter oldDelegate) =>
+      oldDelegate.values != values || oldDelegate.colors != colors;
 }
 
 class QuickGrid extends StatelessWidget {
@@ -738,10 +934,11 @@ class _UserTrainingSectionState extends State<UserTrainingSection> {
         final service = TrainingService.instance;
         final inProgress = service.inProgressTrainings;
         final readyForExam = service.readyForAssessmentTrainings;
+        final failed = service.failedTrainings;
         final dropped = service.droppedTrainings;
         final available = service.availableTrainings;
 
-        if (inProgress.isEmpty && readyForExam.isEmpty && dropped.isEmpty && available.isEmpty) {
+        if (inProgress.isEmpty && readyForExam.isEmpty && failed.isEmpty && dropped.isEmpty && available.isEmpty) {
           if (service.isLoading) {
             return const Padding(
               padding: EdgeInsets.symmetric(vertical: 24),
@@ -820,7 +1017,30 @@ class _UserTrainingSectionState extends State<UserTrainingSection> {
                   )),
             ],
 
-            // 3. Desistência ("Treinamentos Interrompidos")
+            // 3. Prova Reprovada ("Refazer a Prova")
+            if (failed.isNotEmpty) ...[
+              const SectionTitle('Refaça o teste'),
+              ...failed.map((t) => _ActionTrainingCard(
+                    training: t,
+                    statusLabel: 'Refazer a prova',
+                    statusColor: const Color(0xFFEF4444),
+                    subtitle: t.correctCount != null && t.totalQuestionsCount != null
+                        ? 'Você acertou ${t.correctCount} de ${t.totalQuestionsCount} questões (${t.scorePercentage ?? 0}%).'
+                        : 'Você não atingiu a pontuação mínima. Refaça o teste para obter o certificado.',
+                    actionLabel: 'REFAZER PROVA',
+                    actionColor: const Color(0xFFF59E0B),
+                    onAction: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => RetakeExamScreen(training: t),
+                        ),
+                      ).then((_) => TrainingService.instance.fetchTrainings());
+                    },
+                  )),
+            ],
+
+            // 4. Desistência ("Treinamentos Interrompidos")
             if (dropped.isNotEmpty) ...[
               const SectionTitle('Treinamentos Interrompidos'),
               ...dropped.map((t) => _ActionTrainingCard(
@@ -844,7 +1064,7 @@ class _UserTrainingSectionState extends State<UserTrainingSection> {
                   )),
             ],
 
-            // 4. Novos Treinamentos disponíveis
+            // 5. Novos Treinamentos disponíveis
             if (available.isNotEmpty) ...[
               const SectionTitle('Novos Treinamentos'),
               ...available.take(3).map((t) => _ActionTrainingCard(
@@ -1198,10 +1418,11 @@ class PageFrame extends StatelessWidget {
       this.selected = 2,
       this.returnToHome = false});
   @override
-  Widget build(BuildContext context) => WillPopScope(
-      onWillPop: () async {
+  Widget build(BuildContext context) => PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
         _pageSafeBack(context, admin: admin);
-        return false;
       },
       child: AppShell(
           admin: admin,
@@ -1241,10 +1462,14 @@ class _FavoritesPageState extends State<FavoritesPage> {
   void initState() {
     super.initState();
     FavoritesService.instance.loadFavorites();
+    TrainingService.instance.fetchTrainings();
   }
 
   Future<void> _loadFavorites() async {
-    await FavoritesService.instance.loadFavorites();
+    await Future.wait([
+      FavoritesService.instance.loadFavorites(),
+      TrainingService.instance.fetchTrainings(),
+    ]);
   }
 
   Future<void> _toggleFavorite(String entityType, String entityId) async {
@@ -1268,7 +1493,7 @@ class _FavoritesPageState extends State<FavoritesPage> {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: FavoritesService.instance,
+      listenable: Listenable.merge([FavoritesService.instance, TrainingService.instance]),
       builder: (context, _) {
         final resins = FavoritesService.instance.resins;
         final trainings = FavoritesService.instance.trainings;
@@ -1373,25 +1598,30 @@ class _FavoritesPageState extends State<FavoritesPage> {
                                     FavoriteSectionHeader(
                                         'Treinamentos (${trainings.length})',
                                         PextAssets.training),
-                                    ...trainings.map((t) =>
-                                        _DynamicFavoriteTrainingCard(
-                                          training: t,
-                                          onUnfavorite: () => _toggleFavorite(
-                                              'TRAINING', t['id']?.toString() ?? ''),
-                                          onTap: () async {
-                                            await Navigator.push(
-                                              context,
-                                              MaterialPageRoute(
-                                                builder: (_) => TrainingDetailScreen(
-                                                  training:
-                                                      TrainingModel.fromJson(t),
-                                                  admin: false,
-                                                ),
+                                    ...trainings.map((t) {
+                                      final trainingId = t['id']?.toString() ?? '';
+                                      final liveTraining = TrainingService.instance.trainings.firstWhere(
+                                        (tr) => tr.id == trainingId,
+                                        orElse: () => TrainingModel.fromJson(t),
+                                      );
+                                      return _DynamicFavoriteTrainingCard(
+                                        training: t,
+                                        onUnfavorite: () => _toggleFavorite(
+                                            'TRAINING', t['id']?.toString() ?? ''),
+                                        onTap: () async {
+                                          await Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (_) => TrainingDetailScreen(
+                                                training: liveTraining,
+                                                admin: false,
                                               ),
-                                            );
-                                            _loadFavorites();
-                                          },
-                                        )),
+                                            ),
+                                          );
+                                          _loadFavorites();
+                                        },
+                                      );
+                                    }),
                                     if (_tab == 0 && showTerms)
                                       const FavoriteDivider(),
                                   ],
@@ -1575,17 +1805,37 @@ class _DynamicFavoriteTrainingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final title = training['title']?.toString() ?? 'Treinamento';
-    final modules = training['modules'] as List? ?? [];
-    final completedCount = (training['completedModuleCount'] as num?)?.toInt() ??
-        modules.where((m) => (m is Map && m['isCompleted'] == true)).length;
-    final totalCount = modules.isNotEmpty ? modules.length : 1;
-    final progress = (completedCount / totalCount).clamp(0.0, 1.0);
-    final isDone = progress >= 1.0;
-    final badgeText = isDone ? 'Concluído' : (progress > 0 ? 'Em curso' : 'Não iniciado');
-    final badgeColor = isDone
-        ? const Color(0xFF22C55E)
-        : (progress > 0 ? const Color(0xFFF59E0B) : const Color(0xFF6B7280));
+    final trainingId = training['id']?.toString() ?? '';
+    final liveTraining = TrainingService.instance.trainings.firstWhere(
+      (t) => t.id == trainingId,
+      orElse: () => TrainingModel.fromJson(training),
+    );
+
+    final title = liveTraining.title.isNotEmpty ? liveTraining.title : 'Treinamento';
+    final completedCount = liveTraining.completedModulesCount;
+    final totalCount = liveTraining.totalModulesCount > 0 ? liveTraining.totalModulesCount : 1;
+    final progress = liveTraining.progressPercentage;
+
+    String badgeText;
+    Color badgeColor;
+
+    if (liveTraining.isApproved) {
+      final score = liveTraining.scorePercentage ?? 100;
+      badgeText = 'Concluído ($score%)';
+      badgeColor = const Color(0xFF22C55E);
+    } else if (liveTraining.isFailed) {
+      badgeText = 'Refazer prova';
+      badgeColor = const Color(0xFFEF4444);
+    } else if (liveTraining.isAwaitingAssessment) {
+      badgeText = 'Falta realizar a prova';
+      badgeColor = const Color(0xFFF59E0B);
+    } else if (progress > 0) {
+      badgeText = 'Em curso';
+      badgeColor = const Color(0xFFF59E0B);
+    } else {
+      badgeText = 'Não iniciado';
+      badgeColor = const Color(0xFF6B7280);
+    }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),

@@ -403,9 +403,58 @@ class _DetalhesTermoScreenState extends State<DetalhesTermoScreen> {
                     const SizedBox(height: 14),
                     Wrap(
                         spacing: 8,
+                        runSpacing: 6,
                         children: item
                             .strings('relatedTerms')
-                            .map(_TermChip.new)
+                            .map((tName) => _TermChip(
+                                  tName,
+                                  onTap: () async {
+                                    try {
+                                      final terms = await ApiClient.instance
+                                          .content('terms');
+                                      final target = terms
+                                          .where((t) =>
+                                              t.text('term').toLowerCase() ==
+                                                  tName.toLowerCase() ||
+                                              t.id == tName)
+                                          .firstOrNull;
+                                      if (context.mounted) {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (_) => DetalhesTermoScreen(
+                                              item: target ??
+                                                  ApiContent({
+                                                    'id': tName,
+                                                    'term': tName,
+                                                    'description':
+                                                        'Definição e detalhes técnicos para $tName.',
+                                                  }),
+                                              admin: widget.admin,
+                                            ),
+                                          ),
+                                        );
+                                      }
+                                    } catch (_) {
+                                      if (context.mounted) {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (_) => DetalhesTermoScreen(
+                                              item: ApiContent({
+                                                'id': tName,
+                                                'term': tName,
+                                                'description':
+                                                    'Definição e detalhes técnicos para $tName.',
+                                              }),
+                                              admin: widget.admin,
+                                            ),
+                                          ),
+                                        );
+                                      }
+                                    }
+                                  },
+                                ))
                             .toList()),
                   ])),
         ]),
@@ -817,15 +866,32 @@ class TermoSucessoDialog extends StatelessWidget {
 
 class _TermChip extends StatelessWidget {
   final String text;
-  const _TermChip(this.text);
+  final VoidCallback? onTap;
+  const _TermChip(this.text, {this.onTap});
+
   @override
-  Widget build(BuildContext context) => Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-          color: const Color(0xFFE5E7EB),
-          borderRadius: BorderRadius.circular(4)),
-      child: Text(text,
-          style: const TextStyle(fontSize: 11, color: Color(0xFF363C46))));
+  Widget build(BuildContext context) => Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(4),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: const Color(0xFFE5E7EB),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              text,
+              style: const TextStyle(
+                fontSize: 11,
+                color: Color(0xFF363C46),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ),
+      );
 }
 
 class TrainingListScreen extends StatefulWidget {
@@ -837,7 +903,9 @@ class TrainingListScreen extends StatefulWidget {
 
 class _TrainingListScreenState extends State<TrainingListScreen> {
   int _filter = 0;
-  final _filters = const ['Todos', 'Em Curso', 'Concluídos', 'Desistência'];
+  List<String> get _filters => widget.admin
+      ? const ['Todos', 'Obrigatórios', 'Ativos']
+      : const ['Todos', 'Em Curso', 'Concluídos', 'Desistência'];
   final _trainingService = TrainingService.instance;
 
   @override
@@ -858,25 +926,44 @@ class _TrainingListScreenState extends State<TrainingListScreen> {
         training.enrollmentStatus?.toLowerCase() == 'desistência';
     if (isDropped) return 1; // Desistência
 
+    if (training.isApproved) return 2; // Concluído & Aprovado
+    if (training.isFailed) return 4; // Reprovado
+    if (training.isAwaitingAssessment) return 5; // Aguardando Prova
+
     final isCompleted = training.areAllModulesCompleted ||
         (training.progressPercentage >= 1.0 && training.modules.isNotEmpty) ||
         training.enrollmentStatus?.toUpperCase() == 'COMPLETED';
-    if (isCompleted) return 2; // Concluído
+    if (isCompleted) {
+      if (training.scorePercentage == null) return 5;
+      return 2;
+    }
+
+    final isMandatory = training.isDefaultForAllUsers || training.isObrigatorio;
 
     final isInProgress = training.progressPercentage > 0.0 ||
-        (training.isEnrolled && training.completedModuleCount > 0);
+        (training.isEnrolled && training.completedModuleCount > 0) ||
+        isMandatory;
     if (isInProgress) return 0; // Em curso
 
     return 3; // Não iniciado
   }
 
   List<TrainingModel> _filterTrainings(List<TrainingModel> all) {
+    if (widget.admin) {
+      if (_filter == 1) {
+        return all.where((t) => t.isDefaultForAllUsers).toList();
+      } else if (_filter == 2) {
+        return all.where((t) => t.isEnrolled || t.isDefaultForAllUsers || t.modules.isNotEmpty).toList();
+      }
+      return all;
+    }
+
     if (_filter == 1) {
-      return all.where((t) => _computeTrainingStatus(t) == 0).toList();
+      return all.where((t) => _computeTrainingStatus(t) == 0 || _computeTrainingStatus(t) == 5).toList();
     } else if (_filter == 2) {
       return all.where((t) => _computeTrainingStatus(t) == 2).toList();
     } else if (_filter == 3) {
-      return all.where((t) => _computeTrainingStatus(t) == 1).toList();
+      return all.where((t) => _computeTrainingStatus(t) == 1 || _computeTrainingStatus(t) == 4).toList();
     }
     return all;
   }
@@ -995,6 +1082,7 @@ class _TrainingListScreenState extends State<TrainingListScreen> {
                       trainingId: training.id,
                       status: status,
                       admin: widget.admin,
+                      training: training,
                       title: training.title.isNotEmpty
                           ? training.title
                           : 'Treinamento',
@@ -1345,7 +1433,15 @@ class _TrainingDetailScreenState extends State<TrainingDetailScreen> {
                   ),
                 ).then((_) => _reloadTraining());
               },
-              onUnenroll: _unenroll,
+              onRetakeAssessment: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => RetakeExamScreen(training: _training),
+                  ),
+                ).then((_) => _reloadTraining());
+              },
+              onUnenroll: (isOptional && !isDropped) ? _unenroll : null,
             ),
           if (!widget.admin) const SizedBox(height: 18),
           Row(
@@ -1542,11 +1638,13 @@ class _OptionalCourseBanner extends StatelessWidget {
 class _CourseProgressCard extends StatelessWidget {
   final TrainingModel training;
   final VoidCallback? onTakeAssessment;
+  final VoidCallback? onRetakeAssessment;
   final VoidCallback? onUnenroll;
 
   const _CourseProgressCard({
     required this.training,
     this.onTakeAssessment,
+    this.onRetakeAssessment,
     this.onUnenroll,
   });
 
@@ -1560,11 +1658,40 @@ class _CourseProgressCard extends StatelessWidget {
     final pctStr = '${(pct * 100).toInt()}%';
     final remaining = (total - completed) > 0 ? (total - completed) : 0;
     final allDone = total > 0 && completed >= total;
-
+    final isApproved = training.isApproved;
+    final isFailed = training.isFailed;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: _card(),
-      child: Column(children: [
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (training.isDefaultForAllUsers) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEFF6FF),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: const Color(0xFFBFDBFE)),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.verified_user_outlined, size: 14, color: Color(0xFF2563EB)),
+                  SizedBox(width: 6),
+                  Text(
+                    'Treinamento Obrigatório',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF2563EB),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
         Row(children: [
           SizedBox(
             width: 84,
@@ -1574,7 +1701,7 @@ class _CourseProgressCard extends StatelessWidget {
                 child: CircularProgressIndicator(
                   value: pct,
                   strokeWidth: 7,
-                  color: allDone ? const Color(0xFF22C55E) : _blue,
+                  color: isApproved || allDone ? const Color(0xFF22C55E) : _blue,
                   backgroundColor: _border,
                 ),
               ),
@@ -1583,7 +1710,7 @@ class _CourseProgressCard extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: allDone ? const Color(0xFF22C55E) : _blue,
+                  color: isApproved || allDone ? const Color(0xFF22C55E) : _blue,
                 ),
               ),
             ]),
@@ -1594,9 +1721,11 @@ class _CourseProgressCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  allDone
-                      ? 'Parabéns! Todos os módulos foram concluídos'
-                      : 'Você completou $completed de $total módulos',
+                  isApproved
+                      ? 'Treinamento concluído e aprovado!'
+                      : (allDone
+                          ? 'Parabéns! Todos os módulos foram concluídos'
+                          : 'Você completou $completed de $total módulos'),
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 14,
@@ -1610,7 +1739,7 @@ class _CourseProgressCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(4),
                       child: LinearProgressIndicator(
                         value: pct,
-                        color: allDone ? const Color(0xFF22C55E) : _blue,
+                        color: isApproved || allDone ? const Color(0xFF22C55E) : _blue,
                         backgroundColor: _border,
                         minHeight: 8,
                       ),
@@ -1620,7 +1749,7 @@ class _CourseProgressCard extends StatelessWidget {
                   Text(
                     pctStr,
                     style: TextStyle(
-                      color: allDone ? const Color(0xFF22C55E) : _blue,
+                      color: isApproved || allDone ? const Color(0xFF22C55E) : _blue,
                       fontSize: 15,
                       fontWeight: FontWeight.bold,
                     ),
@@ -1628,13 +1757,21 @@ class _CourseProgressCard extends StatelessWidget {
                 ]),
                 const SizedBox(height: 8),
                 Text(
-                  allDone
-                      ? 'Avaliação final desbloqueada!'
-                      : 'Faltam $remaining módulos para concluir',
+                  isApproved
+                      ? 'Parabéns pela sua aprovação!'
+                      : (isFailed
+                          ? 'Você não atingiu a nota mínima. Refaça a avaliação.'
+                          : (allDone
+                              ? 'Avaliação final desbloqueada!'
+                              : 'Faltam $remaining módulos para concluir')),
                   style: TextStyle(
                     fontSize: 11,
-                    color: allDone ? const Color(0xFF16A34A) : const Color(0xFF6B7280),
-                    fontWeight: allDone ? FontWeight.bold : FontWeight.normal,
+                    color: isApproved
+                        ? const Color(0xFF16A34A)
+                        : (isFailed
+                            ? const Color(0xFFDC2626)
+                            : (allDone ? const Color(0xFF16A34A) : const Color(0xFF6B7280))),
+                    fontWeight: isApproved || isFailed || allDone ? FontWeight.bold : FontWeight.normal,
                   ),
                 ),
               ],
@@ -1685,7 +1822,59 @@ class _CourseProgressCard extends StatelessWidget {
             ],
           ),
         ),
-        if (allDone) ...[
+        if (isApproved) ...[
+          const SizedBox(height: 16),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+            decoration: BoxDecoration(
+              color: const Color(0xFF16A34A).withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFF16A34A)),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.check_circle, color: Color(0xFF16A34A), size: 22),
+                const SizedBox(width: 8),
+                Text(
+                  'Treinamento Concluído (${training.scorePercentage ?? 100}%)',
+                  style: const TextStyle(
+                    color: Color(0xFF16A34A),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ] else if (isFailed) ...[
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFFD93838),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                elevation: 2,
+              ),
+              onPressed: onRetakeAssessment ?? onTakeAssessment,
+              icon: const Icon(Icons.refresh, size: 20, color: Colors.white),
+              label: const Text(
+                'Refazer Prova',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ),
+        ] else if (allDone) ...[
           const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
@@ -1712,7 +1901,7 @@ class _CourseProgressCard extends StatelessWidget {
             ),
           ),
         ],
-        if (onUnenroll != null) ...[
+        if (onUnenroll != null && !isApproved && !(training.isDefaultForAllUsers || training.isObrigatorio)) ...[
           const SizedBox(height: 12),
           SizedBox(
             width: double.infinity,
@@ -2734,7 +2923,7 @@ class ExamScreen extends StatefulWidget {
 class _ExamScreenState extends State<ExamScreen> {
   late List<TrainingQuestion> _questions;
   int _currentIndex = 0;
-  final Map<int, int> _answers = {};
+  final Map<int, Set<int>> _answers = {};
   final Set<int> _marked = {};
   bool _submitting = false;
 
@@ -2766,7 +2955,8 @@ class _ExamScreenState extends State<ExamScreen> {
   }
 
   Future<void> _submitAssessment() async {
-    final unanswered = _questions.length - _answers.length;
+    final answeredCount = _answers.values.where((s) => s.isNotEmpty).length;
+    final unanswered = _questions.length - answeredCount;
     if (unanswered > 0) {
       final confirm = await showDialog<bool>(
         context: context,
@@ -2774,7 +2964,7 @@ class _ExamScreenState extends State<ExamScreen> {
           title: const Text('Questões Pendentes',
               style: TextStyle(color: _blue, fontWeight: FontWeight.bold)),
           content: Text(
-              'Você respondeu ${_answers.length} de ${_questions.length} questões. Deseja finalizar mesmo assim?'),
+              'Você respondeu $answeredCount de ${_questions.length} questões. Deseja finalizar mesmo assim?'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, false),
@@ -2793,28 +2983,65 @@ class _ExamScreenState extends State<ExamScreen> {
 
     setState(() => _submitting = true);
     int correctCount = 0;
+    final List<Map<String, dynamic>> answersPayload = [];
+    final List<String> wrongModuleIds = [];
+
     for (int i = 0; i < _questions.length; i++) {
-      final selectedAltIdx = _answers[i];
-      if (selectedAltIdx != null &&
-          selectedAltIdx < _questions[i].alternatives.length &&
-          _questions[i].alternatives[selectedAltIdx].isCorrect) {
+      final q = _questions[i];
+      final selectedIndices = _answers[i] ?? {};
+      final submittedAltIds = selectedIndices.map((idx) {
+        if (idx < q.alternatives.length) {
+          final alt = q.alternatives[idx];
+          return alt.id.isNotEmpty ? alt.id : alt.letter;
+        }
+        return '';
+      }).where((id) => id.isNotEmpty).toList();
+
+      final correctAlts = q.alternatives.where((a) => a.isCorrect).map((a) => a.id.isNotEmpty ? a.id : a.letter).toList();
+      final effectiveCorrect = correctAlts.isNotEmpty ? correctAlts : [q.alternatives.firstOrNull?.id ?? 'a1'];
+
+      final isCorrect = effectiveCorrect.length == submittedAltIds.length &&
+          effectiveCorrect.every((cId) => submittedAltIds.contains(cId));
+
+      if (isCorrect) {
         correctCount++;
+      } else {
+        final trainingMods = widget.training?.modules ?? [];
+        if (trainingMods.isNotEmpty) {
+          final modIdx = ((i / _questions.length) * trainingMods.length).floor().clamp(0, trainingMods.length - 1);
+          wrongModuleIds.add(trainingMods[modIdx].id);
+        }
       }
+
+      answersPayload.add({
+        'questionId': q.id,
+        'selectedAlternativeIds': submittedAltIds,
+        'isCorrect': isCorrect,
+      });
     }
+
     final score = _questions.isNotEmpty
         ? ((correctCount * 100) / _questions.length).round()
         : 0;
     final passing = widget.training?.passingGrade ?? 70;
     final approved = score >= passing;
+    List<String> recommendedReviewModules = List.from(wrongModuleIds);
 
     try {
       if (widget.training != null) {
-        await ApiClient.instance.submitAssessment(
+        final response = await ApiClient.instance.submitAssessment(
           widget.training!.id,
           score: score,
           correctCount: correctCount,
           totalCount: _questions.length,
+          answers: answersPayload,
+          wrongModuleIds: wrongModuleIds,
         );
+        if (response['recommendedReviewModules'] is List) {
+          recommendedReviewModules = (response['recommendedReviewModules'] as List)
+              .map((e) => e.toString())
+              .toList();
+        }
       }
     } catch (e) {
       debugPrint('Error submitting assessment: $e');
@@ -2833,7 +3060,16 @@ class _ExamScreenState extends State<ExamScreen> {
           scorePercentage: score,
           correctCount: correctCount,
           totalCount: _questions.length,
-          onPrimary: () => Navigator.pop(context, true),
+          recommendedReviewModules: recommendedReviewModules,
+          training: widget.training,
+          questions: _questions,
+          userAnswers: _answers,
+          onPrimary: () {
+            Navigator.of(context).pushNamedAndRemoveUntil(
+              PextRoutes.home,
+              (route) => false,
+            );
+          },
         ),
       ),
     );
@@ -2844,6 +3080,8 @@ class _ExamScreenState extends State<ExamScreen> {
     final currentQ = _questions.isNotEmpty && _currentIndex < _questions.length
         ? _questions[_currentIndex]
         : null;
+
+    final isMulti = currentQ?.type == 'MULTIPLE_CHOICE';
 
     return _Shell(
       title: widget.training?.title.isNotEmpty == true
@@ -2875,7 +3113,62 @@ class _ExamScreenState extends State<ExamScreen> {
           currentIndex: _currentIndex,
           totalCount: _questions.length,
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: 14),
+        if (currentQ != null) ...[
+          if (isMulti)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEFF6FF),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFBFDBFE)),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.check_box_outlined, size: 16, color: Color(0xFF2563EB)),
+                  SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      'Múltipla Escolha: Selecione todas as opções corretas',
+                      style: TextStyle(
+                        color: Color(0xFF2563EB),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF3F4F6),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFE5E7EB)),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.radio_button_checked, size: 16, color: Color(0xFF6B7280)),
+                  SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      'Resposta Única: Selecione apenas uma alternativa',
+                      style: TextStyle(
+                        color: Color(0xFF4B5563),
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+        const SizedBox(height: 14),
         Expanded(
           child: currentQ != null
               ? ListView(children: [
@@ -2887,14 +3180,28 @@ class _ExamScreenState extends State<ExamScreen> {
                   ...currentQ.alternatives.asMap().entries.map((entry) {
                     final altIdx = entry.key;
                     final alt = entry.value;
-                    final isSelected = _answers[_currentIndex] == altIdx;
+                    final selectedSet = _answers[_currentIndex] ?? {};
+                    final isSelected = selectedSet.contains(altIdx);
                     return _AnswerCard(
                       letter: alt.letter.isNotEmpty ? alt.letter : 'ABCD'[altIdx % 4],
                       text: alt.text,
                       selected: isSelected,
                       correct: widget.reviewMode && alt.isCorrect,
                       wrong: widget.reviewMode && isSelected && !alt.isCorrect,
-                      onTap: () => setState(() => _answers[_currentIndex] = altIdx),
+                      isMultipleChoice: isMulti,
+                      onTap: () => setState(() {
+                        if (isMulti) {
+                          final set = _answers[_currentIndex] ?? <int>{};
+                          if (set.contains(altIdx)) {
+                            set.remove(altIdx);
+                          } else {
+                            set.add(altIdx);
+                          }
+                          _answers[_currentIndex] = set;
+                        } else {
+                          _answers[_currentIndex] = {altIdx};
+                        }
+                      }),
                     );
                   }),
                   const SizedBox(height: 10),
@@ -3002,14 +3309,18 @@ class _AnswerCard extends StatelessWidget {
   final bool selected;
   final bool correct;
   final bool wrong;
+  final bool isMultipleChoice;
   final VoidCallback onTap;
-  const _AnswerCard(
-      {required this.letter,
-      required this.text,
-      required this.selected,
-      required this.correct,
-      required this.wrong,
-      required this.onTap});
+  const _AnswerCard({
+    required this.letter,
+    required this.text,
+    required this.selected,
+    required this.correct,
+    required this.wrong,
+    this.isMultipleChoice = false,
+    required this.onTap,
+  });
+
   @override
   Widget build(BuildContext context) {
     final color = correct
@@ -3020,48 +3331,64 @@ class _AnswerCard extends StatelessWidget {
                 ? _blue
                 : const Color(0xFF9CA3AF);
     return Padding(
-        padding: const EdgeInsets.only(bottom: 12),
-        child: InkWell(
-            onTap: onTap,
+      padding: const EdgeInsets.only(bottom: 12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
             borderRadius: BorderRadius.circular(16),
-            child: Container(
-                padding: const EdgeInsets.all(16),
+            border: Border.all(
+              color: selected || correct || wrong ? color : _border,
+              width: 1.5,
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                alignment: Alignment.center,
                 decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                        color: selected || correct || wrong ? color : _border,
-                        width: 1.5)),
-                child: Row(children: [
-                  Container(
-                      width: 42,
-                      height: 42,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: selected || correct || wrong
-                              ? color
-                              : Colors.white,
-                          border: Border.all(color: color, width: 1.5)),
-                      child: Text(letter,
-                          style: TextStyle(
-                              color: selected || correct || wrong
-                                  ? Colors.white
-                                  : color,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 18))),
-                  const SizedBox(width: 18),
-                  Expanded(
-                      child: Text(text,
-                          style: const TextStyle(
-                              fontWeight: FontWeight.w600, fontSize: 16)))
-                ]))));
+                  borderRadius: BorderRadius.circular(isMultipleChoice ? 8 : 21),
+                  color: selected || correct || wrong ? color : Colors.white,
+                  border: Border.all(color: color, width: 1.5),
+                ),
+                child: isMultipleChoice && (selected || correct || wrong)
+                    ? Icon(
+                        correct ? Icons.check : (wrong ? Icons.close : Icons.check),
+                        color: Colors.white,
+                        size: 24,
+                      )
+                    : Text(
+                        letter,
+                        style: TextStyle(
+                          color: selected || correct || wrong ? Colors.white : color,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                        ),
+                      ),
+              ),
+              const SizedBox(width: 18),
+              Expanded(
+                child: Text(
+                  text,
+                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 
 class _QuestionNavigator extends StatelessWidget {
   final int questionsCount;
-  final Map<int, int> answers;
+  final Map<int, Set<int>> answers;
   final Set<int> marked;
   final int currentIndex;
   final ValueChanged<int> onSelect;
@@ -3112,7 +3439,7 @@ class _QuestionNavigator extends StatelessWidget {
               crossAxisSpacing: 8,
               children: List.generate(questionsCount, (index) {
                 final active = index == currentIndex;
-                final answered = answers.containsKey(index);
+                final answered = answers.containsKey(index) && answers[index]!.isNotEmpty;
                 final isMarked = marked.contains(index);
                 final color = active
                     ? _blue
@@ -3223,6 +3550,10 @@ class _ResultScreen extends StatelessWidget {
   final int? scorePercentage;
   final int? correctCount;
   final int? totalCount;
+  final List<String>? recommendedReviewModules;
+  final TrainingModel? training;
+  final List<TrainingQuestion>? questions;
+  final Map<int, Set<int>>? userAnswers;
 
   const _ResultScreen({
     required this.approved,
@@ -3231,7 +3562,134 @@ class _ResultScreen extends StatelessWidget {
     this.scorePercentage,
     this.correctCount,
     this.totalCount,
+    this.recommendedReviewModules,
+    this.training,
+    this.questions,
+    this.userAnswers,
   });
+
+  void _onReviewTopics(BuildContext context) {
+    if (training == null || training!.modules.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Nenhum módulo disponível para revisão.')),
+      );
+      return;
+    }
+
+    final allModules = training!.modules;
+    final List<TrainingModule> reviewModules = [];
+
+    if (recommendedReviewModules != null && recommendedReviewModules!.isNotEmpty) {
+      for (final mId in recommendedReviewModules!) {
+        final found = allModules.where((m) => m.id == mId).firstOrNull;
+        if (found != null && !reviewModules.any((m) => m.id == found.id)) {
+          reviewModules.add(found);
+        }
+      }
+    }
+
+    final effectiveReviewModules = reviewModules.isNotEmpty ? reviewModules : allModules;
+
+    if (effectiveReviewModules.length == 1) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => LessonDetailScreen(
+            training: training,
+            module: effectiveReviewModules.first,
+          ),
+        ),
+      );
+    } else {
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        builder: (sheetCtx) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Tópicos Recomendados',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: _blue,
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(sheetCtx),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Selecione um dos módulos abaixo para revisar o conteúdo:',
+                  style: TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
+                ),
+                const SizedBox(height: 16),
+                Flexible(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: effectiveReviewModules.length,
+                    separatorBuilder: (_, __) => const Divider(),
+                    itemBuilder: (ctx, idx) {
+                      final mod = effectiveReviewModules[idx];
+                      return ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: CircleAvatar(
+                          backgroundColor: const Color(0xFFEFF6FF),
+                          child: Text(
+                            '${mod.order}',
+                            style: const TextStyle(
+                              color: _blue,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        title: Text(
+                          mod.title,
+                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                        ),
+                        subtitle: Text(
+                          mod.description.isNotEmpty ? mod.description : 'Revisão de conteúdo',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 11),
+                        ),
+                        trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: _blue),
+                        onTap: () {
+                          Navigator.pop(sheetCtx);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => LessonDetailScreen(
+                                training: training,
+                                module: mod,
+                              ),
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -3246,25 +3704,26 @@ class _ResultScreen extends StatelessWidget {
 
     return _Shell(
         title: title,
+        returnToHome: true,
         child: ListView(children: [
-          const SizedBox(height: 50),
+          const SizedBox(height: 30),
           CircleAvatar(
-              radius: 64,
+              radius: 56,
               backgroundColor: color,
               child: Icon(approved ? Icons.check : Icons.close,
-                  color: Colors.white, size: 74)),
-          const SizedBox(height: 28),
+                  color: Colors.white, size: 64)),
+          const SizedBox(height: 20),
           Text(approved ? 'Parabéns!' : 'Você não foi aprovado',
               textAlign: TextAlign.center,
               style:
-                  const TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
+                  const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 6),
           Text(approved ? 'Você foi aprovado!' : 'Continue estudando!',
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 18, color: Color(0xFF6B7280))),
-          const SizedBox(height: 24),
+              style: const TextStyle(fontSize: 16, color: Color(0xFF6B7280))),
+          const SizedBox(height: 20),
           Container(
-              padding: const EdgeInsets.symmetric(vertical: 20),
+              padding: const EdgeInsets.symmetric(vertical: 16),
               decoration: BoxDecoration(
                   color: tint, borderRadius: BorderRadius.circular(16)),
               child: Row(children: [
@@ -3276,37 +3735,72 @@ class _ResultScreen extends StatelessWidget {
                     child: _ResultMetric(
                         'Situação', approved ? 'Aprovado' : 'Reprovado', color))
               ])),
-          const SizedBox(height: 28),
+          const SizedBox(height: 20),
           if (approved)
             const Text(
                 'Ótimo trabalho! Você atingiu o resultado necessário para aprovação.',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 16))
+                style: TextStyle(fontSize: 15))
           else ...[
-            const Text(
-                'Você precisa de pelo menos 70% de acertos para ser aprovado.',
+            Text(
+                'Você precisa de pelo menos ${training?.passingGrade ?? 70}% de acertos para ser aprovado.',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 16)),
-            const SizedBox(height: 16),
-            const Text('Principais tópicos para revisar:',
-                style: TextStyle(color: _blue, fontWeight: FontWeight.bold)),
-            ...[
-              'Temperatura do Material',
-              'Parâmetros do processo',
-              'Tipos de polímeros'
-            ].map((item) => Container(
-                margin: const EdgeInsets.only(top: 8),
-                decoration: _card(),
-                child: ListTile(
-                    leading: const CircleAvatar(
-                        radius: 16,
-                        backgroundColor: Color(0xFFF44336),
-                        child: Icon(Icons.close, color: Colors.white, size: 16)),
-                    title: Text(item, style: const TextStyle(fontSize: 13)),
-                    trailing: const Text('Revisar',
-                        style: TextStyle(color: _blue, fontWeight: FontWeight.bold))))),
+                style: const TextStyle(fontSize: 15)),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(0, 46),
+                  foregroundColor: _blue,
+                  side: const BorderSide(color: _blue),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                onPressed: () => _onReviewTopics(context),
+                icon: const Icon(Icons.menu_book_outlined, size: 20),
+                label: const Text(
+                  'REVISAR TÓPICOS',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+            ),
           ],
-          const SizedBox(height: 28),
+          if (questions != null && questions!.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(0, 46),
+                  foregroundColor: const Color(0xFF2563EB),
+                  side: const BorderSide(color: Color(0xFF2563EB), width: 1.5),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => GabaritoScreen(
+                        questions: questions!,
+                        userAnswers: userAnswers ?? const {},
+                        trainingTitle: training?.title ?? 'Avaliação',
+                      ),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.fact_check_outlined, size: 20),
+                label: const Text(
+                  'VER GABARITO DA PROVA',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+            ),
+          ],
+          const SizedBox(height: 20),
           SizedBox(
             width: double.infinity,
             child: FilledButton(
@@ -3317,12 +3811,247 @@ class _ResultScreen extends StatelessWidget {
                   borderRadius: BorderRadius.circular(10),
                 ),
               ),
-              onPressed: onPrimary,
+              onPressed: () {
+                if (training != null) {
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => TrainingDetailScreen(
+                        training: training,
+                        admin: false,
+                      ),
+                    ),
+                  );
+                } else {
+                  onPrimary();
+                }
+              },
               child: Text(approved ? 'CONCLUIR' : 'VOLTAR AO TREINAMENTO'),
             ),
           ),
         ]),
       );
+  }
+}
+
+class GabaritoScreen extends StatelessWidget {
+  final List<TrainingQuestion> questions;
+  final Map<int, Set<int>> userAnswers;
+  final String trainingTitle;
+
+  const GabaritoScreen({
+    super.key,
+    required this.questions,
+    required this.userAnswers,
+    this.trainingTitle = 'Gabarito da Avaliação',
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return _Shell(
+      title: 'Gabarito da Avaliação',
+      child: ListView.separated(
+        padding: const EdgeInsets.only(bottom: 24, top: 8),
+        itemCount: questions.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 16),
+        itemBuilder: (context, qIndex) {
+          final q = questions[qIndex];
+          final selectedIndices = userAnswers[qIndex] ?? {};
+
+          final correctIndices = <int>{};
+          for (var i = 0; i < q.alternatives.length; i++) {
+            if (q.alternatives[i].isCorrect) {
+              correctIndices.add(i);
+            }
+          }
+          if (correctIndices.isEmpty && q.alternatives.isNotEmpty) {
+            correctIndices.add(0);
+          }
+
+          final isCorrect = correctIndices.length == selectedIndices.length &&
+              correctIndices.every((idx) => selectedIndices.contains(idx));
+
+          return Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: isCorrect ? const Color(0xFF86EFAC) : const Color(0xFFFCA5A5),
+                width: 1.5,
+              ),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x0A000000),
+                  blurRadius: 6,
+                  offset: Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Questão ${(qIndex + 1).toString().padLeft(2, '0')}',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                        color: _blue,
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: isCorrect
+                            ? const Color(0xFFDCFCE7)
+                            : const Color(0xFFFEE2E2),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            isCorrect ? Icons.check_circle : Icons.cancel,
+                            size: 14,
+                            color: isCorrect
+                                ? const Color(0xFF16A34A)
+                                : const Color(0xFFDC2626),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            isCorrect ? 'Você acertou' : 'Você errou',
+                            style: TextStyle(
+                              color: isCorrect
+                                  ? const Color(0xFF16A34A)
+                                  : const Color(0xFFDC2626),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  q.prompt,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF1F2937),
+                    height: 1.3,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ...q.alternatives.asMap().entries.map((entry) {
+                  final altIndex = entry.key;
+                  final alt = entry.value;
+                  final wasSelected = selectedIndices.contains(altIndex);
+                  final isRightAnswer = correctIndices.contains(altIndex);
+
+                  Color cardBg = Colors.transparent;
+                  Color borderColor = const Color(0xFFE5E7EB);
+                  Color textColor = const Color(0xFF374151);
+                  Widget? statusIcon;
+                  String? tagText;
+
+                  if (isRightAnswer && wasSelected) {
+                    cardBg = const Color(0xFFF0FDF4);
+                    borderColor = const Color(0xFF22C55E);
+                    textColor = const Color(0xFF15803D);
+                    statusIcon = const Icon(Icons.check_circle, color: Color(0xFF16A34A), size: 18);
+                    tagText = 'Sua resposta (Correta)';
+                  } else if (isRightAnswer && !wasSelected) {
+                    cardBg = const Color(0xFFF0FDF4);
+                    borderColor = const Color(0xFF22C55E);
+                    textColor = const Color(0xFF15803D);
+                    statusIcon = const Icon(Icons.check_circle_outline, color: Color(0xFF16A34A), size: 18);
+                    tagText = 'Resposta correta';
+                  } else if (wasSelected && !isRightAnswer) {
+                    cardBg = const Color(0xFFFEF2F2);
+                    borderColor = const Color(0xFFEF4444);
+                    textColor = const Color(0xFFB91C1C);
+                    statusIcon = const Icon(Icons.cancel, color: Color(0xFFDC2626), size: 18);
+                    tagText = 'Sua resposta';
+                  }
+
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: cardBg,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: borderColor, width: wasSelected || isRightAnswer ? 1.5 : 1),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          width: 26,
+                          height: 26,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: wasSelected
+                                ? (isRightAnswer ? const Color(0xFF22C55E) : const Color(0xFFEF4444))
+                                : (isRightAnswer ? const Color(0xFF22C55E) : const Color(0xFFE5E7EB)),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Text(
+                            alt.letter,
+                            style: TextStyle(
+                              color: wasSelected || isRightAnswer ? Colors.white : const Color(0xFF4B5563),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                alt.text,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: textColor,
+                                  fontWeight: wasSelected || isRightAnswer ? FontWeight.w600 : FontWeight.normal,
+                                ),
+                              ),
+                              if (tagText != null) ...[
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    if (statusIcon != null) statusIcon,
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      tagText,
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: isRightAnswer ? const Color(0xFF16A34A) : const Color(0xFFDC2626),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+              ],
+            ),
+          );
+        },
+      ),
+    );
   }
 }
 
@@ -3341,7 +4070,8 @@ class _ResultMetric extends StatelessWidget {
 }
 
 class RetakeExamScreen extends StatelessWidget {
-  const RetakeExamScreen({super.key});
+  final TrainingModel? training;
+  const RetakeExamScreen({super.key, this.training});
   @override
   Widget build(BuildContext context) => _Shell(
       title: 'Refazer Avaliação',
@@ -3387,13 +4117,13 @@ class RetakeExamScreen extends StatelessWidget {
         SizedBox(
             width: double.infinity,
             child: FilledButton(
-                onPressed: () => Navigator.push(context,
-                    MaterialPageRoute(builder: (_) => const ExamScreen())),
+                onPressed: () => Navigator.pushReplacement(context,
+                    MaterialPageRoute(builder: (_) => ExamScreen(training: training))),
                 child: const Text('REFAZER TESTE'))),
         SizedBox(
             width: double.infinity,
             child: OutlinedButton(
-                onPressed: () {}, child: const Text('REVER MÓDULO'))),
+                onPressed: () => Navigator.pop(context), child: const Text('REVER MÓDULO'))),
         const SizedBox(height: 6),
       ]));
 }
@@ -4980,6 +5710,7 @@ class _ChatAssistantScreenState extends State<ChatAssistantScreen> {
       return _Shell(
         title: 'Assistente IA',
         admin: false,
+        returnToHome: true,
         action: _userTab == 0
             ? Row(
                 mainAxisSize: MainAxisSize.min,
@@ -5028,7 +5759,7 @@ class _ChatAssistantScreenState extends State<ChatAssistantScreen> {
         child: Column(
           children: [
             _TabBar(
-              labels: const ['Chat', 'Histórico'],
+              labels: const ['Chat', 'Dúvidas', 'Histórico'],
               value: _userTab,
               onChanged: (value) => setState(() => _userTab = value),
             ),
@@ -5038,6 +5769,7 @@ class _ChatAssistantScreenState extends State<ChatAssistantScreen> {
                 index: _userTab,
                 children: [
                   _AssistantChatTab(key: _chatKey, isAdmin: false),
+                  const _DuvidasTabView(admin: false),
                   _UserChatHistoryTab(
                     onSelectSession: (session) {
                       _chatKey.currentState?.loadSession(session);
@@ -5059,6 +5791,7 @@ class _ChatAssistantScreenState extends State<ChatAssistantScreen> {
     return _Shell(
         title: 'Assistente IA',
         admin: true,
+        returnToHome: true,
         action: _tab == 3
             ? _BoxedHeaderAction(
                 icon: Icons.add,
@@ -5088,7 +5821,7 @@ class _ChatAssistantScreenState extends State<ChatAssistantScreen> {
                 setState(() => _tab = 0);
               },
             ),
-            const _DuvidasTabView(),
+            const _DuvidasTabView(admin: true),
             const _ConteudoTabView(),
           ]))
         ]));
@@ -5516,6 +6249,71 @@ class _AssistantChatTabState extends State<_AssistantChatTab> {
     }
   }
 
+  void _openDirectAdminEscalationDialog() {
+    final textCtrl = TextEditingController();
+    final lastUserMsg = _messages
+        .lastWhere((m) => m.mine && !m.isLoading,
+            orElse: () => const _AssistantMessage(text: '', mine: true))
+        .text;
+    if (lastUserMsg.isNotEmpty) {
+      textCtrl.text = lastUserMsg;
+    }
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.support_agent, color: _blue, size: 24),
+            SizedBox(width: 8),
+            Text(
+              'Solicitação ao ADM',
+              style: TextStyle(color: _blue, fontWeight: FontWeight.bold, fontSize: 18),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Descreva sua dúvida ou solicitação para a equipe de Administração PEXT:',
+              style: TextStyle(fontSize: 13, color: Color(0xFF4B5563)),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: textCtrl,
+              maxLines: 4,
+              decoration: const InputDecoration(
+                hintText: 'Digite aqui os detalhes da solicitação...',
+                border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(10))),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton.icon(
+            style: FilledButton.styleFrom(backgroundColor: _blue),
+            onPressed: () {
+              final query = textCtrl.text.trim();
+              if (query.isNotEmpty) {
+                Navigator.pop(ctx);
+                _escalateToAdmin(query);
+              }
+            },
+            icon: const Icon(Icons.send, size: 16),
+            label: const Text('Enviar Chamado'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) => Column(children: [
         Expanded(
@@ -5658,6 +6456,33 @@ class _AssistantChatTabState extends State<_AssistantChatTab> {
             },
           ),
         ),
+        if (!widget.isAdmin)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: _blue,
+                  side: const BorderSide(color: _blue, width: 1.2),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                ),
+                onPressed: _openDirectAdminEscalationDialog,
+                icon: const Icon(Icons.support_agent, size: 18, color: _blue),
+                label: const Text(
+                  'Falar com ADM / Abrir Chamado',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: _blue,
+                  ),
+                ),
+              ),
+            ),
+          ),
         Container(
           height: 50,
           decoration: BoxDecoration(
@@ -5699,7 +6524,8 @@ class _AssistantChatTabState extends State<_AssistantChatTab> {
 }
 
 class _DuvidasTabView extends StatefulWidget {
-  const _DuvidasTabView();
+  final bool admin;
+  const _DuvidasTabView({this.admin = false});
 
   @override
   State<_DuvidasTabView> createState() => _DuvidasTabViewState();
@@ -5804,19 +6630,30 @@ class _DuvidasTabViewState extends State<_DuvidasTabView> {
       ListenableBuilder(
         listenable: DoubtService.instance,
         builder: (context, _) {
+          final currentUserId = ApiClient.instance.session.userId;
           final allDoubts = DoubtService.instance.doubts.isNotEmpty
               ? DoubtService.instance.doubts
               : _defaultSeedDoubts();
 
-          final shown = allDoubts.where((d) {
-            if (_filter == 1) return d.isAnswered;
-            if (_filter == 2) return !d.isAnswered;
+          final userFilteredDoubts = widget.admin
+              ? allDoubts
+              : allDoubts.where((d) {
+                  if (currentUserId != null && currentUserId.isNotEmpty) {
+                    return d.userId == currentUserId;
+                  }
+                  return d.userId == 'u1' || d.userId.isEmpty;
+                }).toList();
+
+          final shown = userFilteredDoubts.where((d) {
+            if (_filter == 1) return d.isInProgress;
+            if (_filter == 2) return d.isFinalized;
+            if (_filter == 3) return d.isOpen;
             return true;
           }).toList();
 
           return Column(children: [
             _FilterRow(
-              labels: const ['Todos', 'Respondido', 'Não respondida'],
+              labels: const ['Todos', 'Em andamento', 'Finalizados', 'Aberta'],
               value: _filter,
               onChanged: (value) => setState(() => _filter = value),
             ),
@@ -5832,7 +6669,10 @@ class _DuvidasTabViewState extends State<_DuvidasTabView> {
                     onTap: () async {
                       await Navigator.of(context).push(
                         MaterialPageRoute(
-                          builder: (_) => DoubtThreadScreen(doubt: doubt),
+                          builder: (_) => DoubtThreadScreen(
+                            doubt: doubt,
+                            admin: widget.admin,
+                          ),
                         ),
                       );
                       setState(() {});
@@ -5854,8 +6694,19 @@ class _QuestionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color =
-        doubt.isAnswered ? const Color(0xFF20BF64) : const Color(0xFFF8494E);
+    final Color badgeColor;
+    final String badgeLabel;
+    if (doubt.isFinalized) {
+      badgeColor = const Color(0xFF16A34A);
+      badgeLabel = 'FINALIZADO';
+    } else if (doubt.isInProgress) {
+      badgeColor = const Color(0xFFEAB308);
+      badgeLabel = 'EM ANDAMENTO';
+    } else {
+      badgeColor = const Color(0xFFF8494E);
+      badgeLabel = 'ABERTA';
+    }
+
     return InkWell(
       borderRadius: BorderRadius.circular(12),
       onTap: onTap,
@@ -5914,8 +6765,8 @@ class _QuestionCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 9),
                 _StatusBadge(
-                  label: doubt.isAnswered ? 'RESPONDIDA' : 'ABERTA',
-                  color: color,
+                  label: badgeLabel,
+                  color: badgeColor,
                 ),
               ],
             ),
@@ -5944,6 +6795,7 @@ class _DoubtThreadScreenState extends State<DoubtThreadScreen> {
   final _scrollController = ScrollController();
   late DoubtModel _doubt;
   bool _sending = false;
+  bool _resolving = false;
 
   @override
   void initState() {
@@ -5958,9 +6810,59 @@ class _DoubtThreadScreenState extends State<DoubtThreadScreen> {
     super.dispose();
   }
 
+  Future<void> _finalizeTicket() async {
+    if (!widget.admin) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Apenas o administrador pode finalizar o chamado.'),
+          backgroundColor: Color(0xFFDC2626),
+        ),
+      );
+      return;
+    }
+    if (_resolving) return;
+    setState(() => _resolving = true);
+    try {
+      final updated = await DoubtService.instance.finalizeDoubt(_doubt.id);
+      if (!mounted) return;
+      setState(() {
+        _doubt = updated;
+        _resolving = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Chamado finalizado com sucesso!'),
+          backgroundColor: Color(0xFF16A34A),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _doubt = _doubt.copyWith(status: 'FINALIZADO');
+        _resolving = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Chamado finalizado com sucesso.'),
+          backgroundColor: Color(0xFF16A34A),
+        ),
+      );
+    }
+  }
+
   Future<void> _sendReply() async {
     final text = _controller.text.trim();
     if (text.isEmpty || _sending) return;
+
+    if (_doubt.isFinalized && widget.admin) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Chamado finalizado. Apenas o operador pode reabrir este chamado.'),
+          backgroundColor: Color(0xFFDC2626),
+        ),
+      );
+      return;
+    }
 
     setState(() => _sending = true);
     _controller.clear();
@@ -5970,7 +6872,7 @@ class _DoubtThreadScreenState extends State<DoubtThreadScreen> {
       if (!mounted) return;
       setState(() {
         _doubt = _doubt.copyWith(
-          status: 'RESPONDIDO',
+          status: 'IN_PROGRESS',
           messages: List<DoubtMessage>.from(_doubt.messages)..add(msg),
         );
         _sending = false;
@@ -5989,15 +6891,15 @@ class _DoubtThreadScreenState extends State<DoubtThreadScreen> {
       if (!mounted) return;
       final localMsg = DoubtMessage(
         id: UniqueKey().toString(),
-        senderId: 'admin',
-        senderName: 'Administrador PEXT',
-        senderRole: 'ADMIN',
+        senderId: widget.admin ? 'admin' : 'user',
+        senderName: widget.admin ? 'Administrador PEXT' : 'Igor Teixeira Corturato',
+        senderRole: widget.admin ? 'ADMIN' : 'USER',
         text: text,
         createdAt: 'Agora',
       );
       setState(() {
         _doubt = _doubt.copyWith(
-          status: 'RESPONDIDO',
+          status: 'IN_PROGRESS',
           messages: List<DoubtMessage>.from(_doubt.messages)..add(localMsg),
         );
         _sending = false;
@@ -6018,46 +6920,77 @@ class _DoubtThreadScreenState extends State<DoubtThreadScreen> {
                 Container(
                   padding: const EdgeInsets.all(14),
                   decoration: _card(),
-                  child: Row(
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const CircleAvatar(
-                        radius: 20,
-                        backgroundImage: AssetImage('images/profile_igor.png'),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const CircleAvatar(
+                            radius: 20,
+                            backgroundImage: AssetImage('images/profile_igor.png'),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '${_doubt.userName} - ${_doubt.createdAt}',
+                                  style: const TextStyle(
+                                      fontSize: 10, color: Color(0xFF737D8C)),
+                                ),
+                                const SizedBox(height: 6),
+                                if (_doubt.verificationData != null &&
+                                    _doubt.verificationData!.isNotEmpty) ...[
+                                  VerificationParametersCard(doubt: _doubt),
+                                ] else ...[
+                                  Text(
+                                    _doubt.question,
+                                    style: const TextStyle(
+                                        fontSize: 15, fontWeight: FontWeight.bold),
+                                    softWrap: true,
+                                  ),
+                                ],
+                                const SizedBox(height: 6),
+                                _buildStatusBadge(),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '${_doubt.userName} - ${_doubt.createdAt}',
+                      if (widget.admin && !_doubt.isFinalized) ...[
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: _resolving ? null : _finalizeTicket,
+                            icon: _resolving
+                                ? const SizedBox(
+                                    width: 14,
+                                    height: 14,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2, color: Color(0xFF16A34A)),
+                                  )
+                                : const Icon(Icons.check_circle_outline,
+                                    size: 16, color: Color(0xFF16A34A)),
+                            label: Text(
+                              _resolving ? 'Finalizando...' : 'Finalizar Chamado',
                               style: const TextStyle(
-                                  fontSize: 10, color: Color(0xFF737D8C)),
-                            ),
-                            const SizedBox(height: 6),
-                            if (_doubt.verificationData != null &&
-                                _doubt.verificationData!.isNotEmpty) ...[
-                              VerificationParametersCard(doubt: _doubt),
-                            ] else ...[
-                              Text(
-                                _doubt.question,
-                                style: const TextStyle(
-                                    fontSize: 15, fontWeight: FontWeight.bold),
-                                softWrap: true,
+                                color: Color(0xFF16A34A),
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
                               ),
-                            ],
-                            const SizedBox(height: 6),
-                            _StatusBadge(
-                              label:
-                                  _doubt.isAnswered ? 'RESPONDIDA' : 'ABERTA',
-                              color: _doubt.isAnswered
-                                  ? const Color(0xFF20BF64)
-                                  : const Color(0xFFF8494E),
                             ),
-                          ],
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(color: Color(0xFF16A34A)),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10)),
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                            ),
+                          ),
                         ),
-                      ),
+                      ],
                     ],
                   ),
                 ),
@@ -6070,43 +7003,101 @@ class _DoubtThreadScreenState extends State<DoubtThreadScreen> {
             ),
           ),
           const SizedBox(height: 10),
-          Container(
-            height: 50,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border.all(color: _border),
-              borderRadius: BorderRadius.circular(16),
+          if (_doubt.isFinalized)
+            Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: widget.admin ? const Color(0xFFF3F4F6) : const Color(0xFFF0FDF4),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: widget.admin ? const Color(0xFFE5E7EB) : const Color(0xFFBBF7D0)),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.lock_outline,
+                    size: 16,
+                    color: widget.admin ? const Color(0xFF6B7280) : const Color(0xFF16A34A),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      widget.admin
+                          ? 'Chamado finalizado. Apenas o operador pode enviar nova mensagem e reabrir o chamado.'
+                          : 'Chamado finalizado. Envie uma nova mensagem para reabrir o atendimento.',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: widget.admin ? const Color(0xFF4B5563) : const Color(0xFF15803D),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-            child: Row(children: [
-              Expanded(
-                child: TextField(
-                  controller: _controller,
-                  onSubmitted: (_) => _sendReply(),
-                  decoration: const InputDecoration(
-                    contentPadding: EdgeInsets.symmetric(horizontal: 14),
-                    hintText: 'Responder como Administrador...',
-                    hintStyle: TextStyle(color: Color(0xFF9CA3AF)),
-                    border: InputBorder.none,
+          if (_doubt.isFinalized && widget.admin)
+            Container(
+              height: 50,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF3F4F6),
+                border: Border.all(color: _border),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Chamado finalizado. Aguardando reabertura pelo operador.',
+                      style: TextStyle(color: Color(0xFF9CA3AF), fontSize: 13),
+                    ),
+                  ),
+                  Icon(Icons.lock, color: Color(0xFF9CA3AF), size: 20),
+                ],
+              ),
+            )
+          else
+            Container(
+              height: 50,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                border: Border.all(color: _border),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Row(children: [
+                Expanded(
+                  child: TextField(
+                    controller: _controller,
+                    onSubmitted: (_) => _sendReply(),
+                    decoration: InputDecoration(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 14),
+                      hintText: _doubt.isFinalized
+                          ? 'Escreva para reabrir o chamado...'
+                          : (widget.admin
+                              ? 'Responder como Administrador...'
+                              : 'Digite sua mensagem...'),
+                      hintStyle: const TextStyle(color: Color(0xFF9CA3AF)),
+                      border: InputBorder.none,
+                    ),
                   ),
                 ),
-              ),
-              InkWell(
-                borderRadius: BorderRadius.circular(14),
-                onTap: _sending ? null : _sendReply,
-                child: Container(
-                  width: 48,
-                  height: 48,
-                  padding: const EdgeInsets.all(11),
-                  decoration: const BoxDecoration(
-                    color: _blue,
-                    borderRadius:
-                        BorderRadius.horizontal(right: Radius.circular(14)),
+                InkWell(
+                  borderRadius: BorderRadius.circular(14),
+                  onTap: _sending ? null : _sendReply,
+                  child: Container(
+                    width: 48,
+                    height: 48,
+                    padding: const EdgeInsets.all(11),
+                    decoration: const BoxDecoration(
+                      color: _blue,
+                      borderRadius:
+                          BorderRadius.horizontal(right: Radius.circular(14)),
+                    ),
+                    child: const PextAssetIcon(PextAssets.send, size: 24),
                   ),
-                  child: const PextAssetIcon(PextAssets.send, size: 24),
                 ),
-              ),
-            ]),
-          ),
+              ]),
+            ),
         ]),
       );
 
@@ -6191,6 +7182,25 @@ class _DoubtThreadScreenState extends State<DoubtThreadScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildStatusBadge() {
+    if (_doubt.isFinalized) {
+      return const _StatusBadge(
+        label: 'FINALIZADO',
+        color: Color(0xFF16A34A),
+      );
+    }
+    if (_doubt.isInProgress) {
+      return const _StatusBadge(
+        label: 'EM ANDAMENTO',
+        color: Color(0xFFEAB308),
+      );
+    }
+    return const _StatusBadge(
+      label: 'ABERTA',
+      color: Color(0xFFF8494E),
     );
   }
 }
@@ -6509,11 +7519,11 @@ class _FilterRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Row(
         children: labels.asMap().entries.map((entry) {
-          final color = entry.key == 1
-              ? const Color(0xFF20BF64)
-              : entry.key == 2
-                  ? const Color(0xFF6B7280)
-                  : const Color(0xFF737D8C);
+          final isSelected = entry.key == value;
+          const selectedColor = Color(0xFF132B5C);
+          const unselectedColor = Color(0xFF737D8C);
+          const unselectedBorder = Color(0xFFD1D5DB);
+
           return Expanded(
             child: Padding(
               padding: EdgeInsets.only(
@@ -6522,11 +7532,11 @@ class _FilterRow extends StatelessWidget {
                 style: OutlinedButton.styleFrom(
                   minimumSize: const Size(0, 30),
                   side: BorderSide(
-                      color: entry.key == value ? color : const Color(0xFFD1D5DB)),
+                      color: isSelected ? selectedColor : unselectedBorder),
                   padding: EdgeInsets.zero,
-                  foregroundColor: color,
-                  backgroundColor: entry.key == value
-                      ? color.withOpacity(0.08)
+                  foregroundColor: isSelected ? selectedColor : unselectedColor,
+                  backgroundColor: isSelected
+                      ? selectedColor.withValues(alpha: 0.08)
                       : Colors.transparent,
                 ),
                 onPressed: () => onChanged(entry.key),
@@ -6534,9 +7544,7 @@ class _FilterRow extends StatelessWidget {
                   entry.value,
                   style: TextStyle(
                     fontSize: 9,
-                    fontWeight: entry.key == value
-                        ? FontWeight.bold
-                        : FontWeight.normal,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                   ),
                 ),
               ),
@@ -8922,10 +9930,11 @@ class _Shell extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) => WillPopScope(
-      onWillPop: () async {
+  Widget build(BuildContext context) => PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
         _safeBack(context);
-        return false;
       },
       child: Scaffold(
         backgroundColor: _canvas,
@@ -8963,6 +9972,10 @@ class _Shell extends StatelessWidget {
       ));
 
   void _safeBack(BuildContext context) {
+    if (returnToHome) {
+      _goToRoot(context, PextRoutes.home, admin: admin);
+      return;
+    }
     final navigator = Navigator.of(context);
     if (navigator.canPop()) {
       navigator.pop();
@@ -9167,6 +10180,7 @@ class _TrainingTile extends StatelessWidget {
   final int? questionCount;
   final double? progress;
   final String? currentModuleSubtitle;
+  final TrainingModel? training;
 
   const _TrainingTile({
     this.trainingId,
@@ -9178,26 +10192,52 @@ class _TrainingTile extends StatelessWidget {
     this.questionCount,
     this.progress,
     this.currentModuleSubtitle,
+    this.training,
   });
 
   @override
   Widget build(BuildContext context) {
-    final labels = const ['Em curso', 'Desistência', 'Concluído', 'Não iniciado'];
-    final colors = const [
-      Color(0xFFF0A000),
-      Color(0xFFF04444),
-      Color(0xFF1AB65C),
-      Color(0xFF6B7280),
-    ];
-    final safeStatus = (status >= 0 && status < labels.length) ? status : 3;
+    final isApproved = training?.isApproved ?? (status == 2);
+    final isFailed = training?.isFailed ?? (status == 4);
+    final isAwaitingAssessment = training?.isAwaitingAssessment ?? (status == 5);
+
+    final isMandatory = training?.isDefaultForAllUsers == true || training?.isObrigatorio == true;
+
+    String pillLabel;
+    Color pillColor;
+    if (isApproved) {
+      pillLabel = 'Concluído';
+      pillColor = const Color(0xFF1AB65C);
+    } else if (isFailed) {
+      pillLabel = 'Reprovado';
+      pillColor = const Color(0xFFF04444);
+    } else if (isAwaitingAssessment) {
+      pillLabel = 'Aguardando Prova';
+      pillColor = const Color(0xFFF0A000);
+    } else if (status == 1) {
+      pillLabel = 'Desistência';
+      pillColor = const Color(0xFFF04444);
+    } else if (status == 0 || isMandatory) {
+      pillLabel = 'Em curso';
+      pillColor = const Color(0xFFF0A000);
+    } else {
+      pillLabel = 'Não iniciado';
+      pillColor = const Color(0xFF6B7280);
+    }
 
     final double progVal;
     if (progress != null) {
       progVal = progress!.clamp(0.0, 1.0);
+    } else if (training != null) {
+      progVal = training!.progressPercentage;
     } else {
-      progVal = safeStatus == 2 ? 1.0 : (safeStatus == 0 ? 0.7 : 0.0);
+      progVal = isApproved ? 1.0 : (status == 0 ? 0.7 : 0.0);
     }
     final int progPercent = (progVal * 100).toInt();
+
+    final totalQ = training?.totalQuestionsCount ?? questionCount ?? training?.questionCount ?? 20;
+    final correctQ = training?.correctCount ?? (training?.scorePercentage != null ? ((training!.scorePercentage! * totalQ) / 100).round() : 0);
+    final scorePct = training?.scorePercentage ?? (isApproved ? 100 : 0);
 
     return InkWell(
         onTap: onTap,
@@ -9223,17 +10263,17 @@ class _TrainingTile extends StatelessWidget {
                       children: [
                     Row(children: [
                       Expanded(
-                          child: Text(title ?? 'Processo de extrusão',
+                          child: Text(title ?? training?.title ?? 'Processo de extrusão',
                               style: const TextStyle(
                                   color: _blue, fontWeight: FontWeight.bold))),
-                      if (!admin && trainingId != null)
-                        _TrainingFavoriteIconButton(trainingId: trainingId!),
-                      if (!admin) _Pill(labels[safeStatus], colors[safeStatus])
+                      if (!admin && (trainingId != null || training?.id != null))
+                        _TrainingFavoriteIconButton(trainingId: trainingId ?? training!.id),
+                      if (!admin) _Pill(pillLabel, pillColor)
                     ]),
                     Text(
                         admin
-                            ? '${moduleCount ?? 10} Módulos  •  ${questionCount ?? 20} Questões'
-                            : (currentModuleSubtitle ?? 'Módulo 2 - Temperatura e pressão'),
+                            ? '${moduleCount ?? training?.modules.length ?? 10} Módulos  •  ${questionCount ?? training?.questionCount ?? 20} Questões'
+                            : (currentModuleSubtitle ?? 'Módulo em andamento'),
                         style: const TextStyle(fontSize: 8)),
                     if (!admin) ...[
                       const SizedBox(height: 7),
@@ -9249,26 +10289,37 @@ class _TrainingTile extends StatelessWidget {
                             style: const TextStyle(fontSize: 10, color: _blue))
                       ]),
                     ],
-                    if (!admin && safeStatus == 1)
+                    if (!admin && status == 1)
                       const _TrainingContextBanner(
                         asset: PextAssets.tryAgain,
                         color: Color(0xFFF04444),
-                        text: 'Você parou de estudar. Retome de onde parou.',
+                        text: 'Você interrompeu este curso. Retome seus estudos.',
                       ),
-                    if (!admin && safeStatus == 2)
-                      const _TrainingContextBanner(
+                    if (!admin && isFailed)
+                      _TrainingContextBanner(
+                        asset: PextAssets.tryAgain,
+                        color: const Color(0xFFF04444),
+                        text: 'Refazer a prova - Você acertou $correctQ de $totalQ questões ($scorePct%).',
+                      ),
+                    if (!admin && isApproved)
+                      _TrainingContextBanner(
                         asset: PextAssets.approved,
-                        color: Color(0xFF1AB65C),
-                        text:
-                            'Aprovado - Você acertou 18 de 20 questões (90%).',
+                        color: const Color(0xFF1AB65C),
+                        text: 'Aprovado - Você acertou $correctQ de $totalQ questões ($scorePct%).',
                       ),
-                    if (!admin && safeStatus == 3)
+                    if (!admin && isAwaitingAssessment)
+                      const _TrainingContextBanner(
+                        asset: PextAssets.warning,
+                        color: Color(0xFFF0A000),
+                        iconBackground: Color(0xFFF59E0B),
+                        text: 'Falta realizar a prova para concluir sua capacitação.',
+                      ),
+                    if (!admin && status == 3 && !isMandatory && !isAwaitingAssessment && !isApproved && !isFailed && status != 1)
                       const _TrainingContextBanner(
                         asset: PextAssets.warning,
                         color: Color(0xFF6B7280),
                         iconBackground: Color(0xFF9CA3AF),
-                        text:
-                            'Treinamento disponível. Inicie para começar sua capacitação.',
+                        text: 'Treinamento disponível. Inicie para começar sua capacitação.',
                       ),
                   ])),
               const Icon(

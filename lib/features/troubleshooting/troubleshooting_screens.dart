@@ -404,12 +404,14 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
             _specification.enabledVerifications.elementAt(index).name,
             double.tryParse(_controllerFor(index).text.replaceAll(',', '.')) ??
                 0)));
+    String? diagnosticLogId;
     try {
       if (widget.problemId != null && _specification.id != null) {
-        await ApiClient.instance.diagnose(
+        final res = await ApiClient.instance.diagnose(
             problemId: widget.problemId!,
             packagingId: _specification.id!,
             inputValues: measurements);
+        diagnosticLogId = res['log']?['id']?.toString();
       }
       if (!mounted) return;
       Navigator.push(
@@ -417,12 +419,28 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
           MaterialPageRoute(
               builder: (_) => SolutionsScreen(
                   problem: widget.problem,
+                  problemId: widget.problemId,
                   packaging: _specification.name,
-                  measurements: measurements)));
+                  packagingId: _specification.id,
+                  measurements: measurements,
+                  diagnosticLogId: diagnosticLogId)));
     } on ApiException catch (error) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(error.message)));
+      }
+    } catch (_) {
+      if (!mounted) return;
+      Navigator.push(
+          context,
+          MaterialPageRoute(
+              builder: (_) => SolutionsScreen(
+                  problem: widget.problem,
+                  problemId: widget.problemId,
+                  packaging: _specification.name,
+                  packagingId: _specification.id,
+                  measurements: measurements,
+                  diagnosticLogId: diagnosticLogId)));
     }
   }
 
@@ -505,13 +523,20 @@ class _ChecklistScreenState extends State<ChecklistScreen> {
 
 class SolutionsScreen extends StatelessWidget {
   final String problem;
+  final String? problemId;
   final String packaging;
+  final String? packagingId;
   final Map<String, double> measurements;
+  final String? diagnosticLogId;
+
   const SolutionsScreen(
       {super.key,
       required this.problem,
+      this.problemId,
       required this.packaging,
-      required this.measurements});
+      this.packagingId,
+      required this.measurements,
+      this.diagnosticLogId});
 
   @override
   Widget build(BuildContext context) => _TroubleScaffold(
@@ -531,8 +556,17 @@ class SolutionsScreen extends StatelessWidget {
         SizedBox(
             width: double.infinity,
             child: FilledButton(
-                onPressed: () =>
-                    Navigator.popUntil(context, (route) => route.isFirst),
+                onPressed: () async {
+                  if (diagnosticLogId != null && diagnosticLogId!.isNotEmpty) {
+                    try {
+                      await ApiClient.instance
+                          .resolveProblemBySystem(diagnosticLogId!);
+                    } catch (_) {}
+                  }
+                  if (context.mounted) {
+                    Navigator.popUntil(context, (route) => route.isFirst);
+                  }
+                },
                 child: const Text('PROBLEMA SOLUCIONADO'))),
         const SizedBox(height: 8),
         SizedBox(
@@ -541,7 +575,8 @@ class SolutionsScreen extends StatelessWidget {
                 onPressed: () => _showSupervisorModal(context,
                     problem: problem,
                     packaging: packaging,
-                    measurements: measurements),
+                    measurements: measurements,
+                    diagnosticLogId: diagnosticLogId),
                 child: const Text('NÃO CONSEGUI RESOLVER')))
       ]));
 
@@ -589,7 +624,8 @@ String _problemGuide(String problem) {
 void _showSupervisorModal(BuildContext context,
     {required String problem,
     required String packaging,
-    required Map<String, double> measurements}) {
+    required Map<String, double> measurements,
+    String? diagnosticLogId}) {
   final specification = PackagingCatalog.byName(packaging);
   final parametersList = <Map<String, String>>[];
   for (final param in specification.enabledVerifications) {
@@ -647,9 +683,18 @@ void _showSupervisorModal(BuildContext context,
                   processContext: 'Diagnóstico de Embalagem',
                   verificationData: {
                     'packagingId': packaging,
+                    if (diagnosticLogId != null) 'diagnosticLogId': diagnosticLogId,
                     'parameters': parametersList,
                   },
                 );
+                if (diagnosticLogId != null && diagnosticLogId.isNotEmpty) {
+                  try {
+                    await ApiClient.instance.postRaw('/problems/supervisor-request', {
+                      'diagnosticLogId': diagnosticLogId,
+                      'message': 'Encaminhado pelo operador após verificar soluções recomendadas.',
+                    });
+                  } catch (_) {}
+                }
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
@@ -1317,11 +1362,15 @@ class _TroubleScaffold extends StatelessWidget {
       this.admin = false,
       this.returnToHome = false});
   @override
-  Widget build(BuildContext context) => WillPopScope(
-      onWillPop: () async {
-        if (!returnToHome) return true;
-        _goToRoot(context, PextRoutes.home, admin: admin);
-        return false;
+  Widget build(BuildContext context) => PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        if (returnToHome || !Navigator.of(context).canPop()) {
+          _goToRoot(context, PextRoutes.home, admin: admin);
+        } else {
+          Navigator.pop(context);
+        }
       },
       child: Scaffold(
           resizeToAvoidBottomInset: true,

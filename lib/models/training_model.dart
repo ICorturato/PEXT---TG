@@ -262,6 +262,10 @@ class TrainingModel {
   final bool isDefaultForAllUsers;
   final bool isEnrolled;
   final String? enrollmentStatus;
+  final int? scorePercentage;
+  final int? correctCount;
+  final int? totalQuestionsCount;
+  final String? assessmentStatus;
   final String? createdAt;
   final String? updatedAt;
 
@@ -282,12 +286,20 @@ class TrainingModel {
     this.isDefaultForAllUsers = true,
     this.isEnrolled = false,
     this.enrollmentStatus,
+    this.scorePercentage,
+    this.correctCount,
+    this.totalQuestionsCount,
+    this.assessmentStatus,
     this.createdAt,
     this.updatedAt,
   });
 
   int get completedModuleCount =>
       modules.where((m) => m.isCompleted || m.isFullyCompleted).length;
+
+  int get completedModulesCount => completedModuleCount;
+
+  int get totalModulesCount => modules.length;
 
   int get inProgressModuleCount =>
       modules.isNotEmpty && completedModuleCount < modules.length ? 1 : 0;
@@ -303,6 +315,18 @@ class TrainingModel {
 
   bool get areAllModulesCompleted =>
       modules.isNotEmpty && completedModuleCount == modules.length;
+
+  bool get isObrigatorio => isDefaultForAllUsers;
+
+  bool get isApproved =>
+      scorePercentage != null && scorePercentage! >= passingGrade;
+
+  bool get isFailed =>
+      enrollmentStatus?.toUpperCase() == 'REPROVADO' ||
+      (scorePercentage != null && scorePercentage! < passingGrade);
+
+  bool get isAwaitingAssessment =>
+      areAllModulesCompleted && scorePercentage == null && !isFailed;
 
   TrainingModule? get nextIncompleteModule {
     for (final m in modules) {
@@ -328,6 +352,10 @@ class TrainingModel {
     bool? isDefaultForAllUsers,
     bool? isEnrolled,
     String? enrollmentStatus,
+    int? scorePercentage,
+    int? correctCount,
+    int? totalQuestionsCount,
+    String? assessmentStatus,
     String? createdAt,
     String? updatedAt,
   }) =>
@@ -348,11 +376,16 @@ class TrainingModel {
         isDefaultForAllUsers: isDefaultForAllUsers ?? this.isDefaultForAllUsers,
         isEnrolled: isEnrolled ?? this.isEnrolled,
         enrollmentStatus: enrollmentStatus ?? this.enrollmentStatus,
+        scorePercentage: scorePercentage ?? this.scorePercentage,
+        correctCount: correctCount ?? this.correctCount,
+        totalQuestionsCount: totalQuestionsCount ?? this.totalQuestionsCount,
+        assessmentStatus: assessmentStatus ?? this.assessmentStatus,
         createdAt: createdAt ?? this.createdAt,
         updatedAt: updatedAt ?? this.updatedAt,
       );
 
   factory TrainingModel.fromJson(Map<String, dynamic> json) {
+    final prog = json['progress'] is Map ? json['progress'] as Map : null;
     return TrainingModel(
       id: json['id']?.toString() ?? '',
       title: json['title']?.toString() ?? '',
@@ -369,7 +402,16 @@ class TrainingModel {
       totalSteps: (json['totalSteps'] as num?)?.toInt() ?? 0,
       isDefaultForAllUsers: json['isDefaultForAllUsers'] != false,
       isEnrolled: json['isEnrolled'] == true,
-      enrollmentStatus: json['enrollmentStatus']?.toString(),
+      enrollmentStatus: json['enrollmentStatus']?.toString() ??
+          prog?['status']?.toString(),
+      scorePercentage: (json['scorePercentage'] as num?)?.toInt() ??
+          (prog?['scorePercentage'] as num?)?.toInt(),
+      correctCount: (json['correctCount'] as num?)?.toInt() ??
+          (prog?['correctCount'] as num?)?.toInt(),
+      totalQuestionsCount: (json['totalCount'] as num?)?.toInt() ??
+          (prog?['totalCount'] as num?)?.toInt(),
+      assessmentStatus: json['assessmentStatus']?.toString() ??
+          prog?['status']?.toString(),
       modules: (json['modules'] as List?)
               ?.map((e) => TrainingModule.fromJson(Map<String, dynamic>.from(e as Map)))
               .toList() ??
@@ -396,6 +438,10 @@ class TrainingModel {
         'questionCount': questionCount,
         'totalSteps': totalSteps,
         'isDefaultForAllUsers': isDefaultForAllUsers,
+        if (scorePercentage != null) 'scorePercentage': scorePercentage,
+        if (correctCount != null) 'correctCount': correctCount,
+        if (totalQuestionsCount != null) 'totalCount': totalQuestionsCount,
+        if (assessmentStatus != null) 'assessmentStatus': assessmentStatus,
         'modules': modules.map((m) => m.toJson()).toList(),
         'questions': questions.map((q) => q.toJson()).toList(),
       };

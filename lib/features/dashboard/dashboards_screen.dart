@@ -451,34 +451,6 @@ class _ProblemsTabView extends StatelessWidget {
           title: 'Problemas que geram mais solicitações',
           items: problems.topEscalatedProblems,
         ),
-        const SizedBox(height: 20),
-        Row(
-          children: [
-            Expanded(
-              child: KpiCard.fromMetric(
-                title: 'Soluções Exibidas',
-                metric: problems.solutionsDisplayed,
-                compact: true,
-                overrideTitleColor: const Color(0xFF0B4AA0),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: KpiCard.fromMetric(
-                title: 'Taxa de sucesso',
-                metric: problems.solutionsSuccessRate,
-                compact: true,
-                overrideTitleColor: const Color(0xFF16A34A),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 20),
-        HorizontalBarChartCard(
-          title: 'Taxa de sucesso das soluções',
-          items: problems.solutionsByType,
-          valueSuffix: '%',
-        ),
       ],
     );
   }
@@ -540,7 +512,6 @@ class _TrainingsTabView extends StatelessWidget {
         HorizontalBarChartCard(
           title: 'Ranking de Cursos (Maior Desistência / Reprovação)',
           items: trainings.courseRankings,
-          valueSuffix: '%',
         ),
         const SizedBox(height: 20),
         DonutChartCard(

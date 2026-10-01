@@ -1,7 +1,9 @@
+import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:video_player/video_player.dart';
 
 import '../../app_routes.dart';
 import '../../models/resin_model.dart';
@@ -1669,49 +1671,306 @@ class _ResinDetailScreenState extends State<ResinDetailScreen> {
         const SizedBox(height: 10),
         ...videos.map((vid) => Container(
               margin: const EdgeInsets.only(bottom: 8),
-              padding: const EdgeInsets.all(12),
               decoration: _cardDecoration(),
-              child: Row(
-                children: [
-                  Container(
-                    width: 76,
-                    height: 54,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFE5E7EB),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    alignment: Alignment.center,
-                    child: const PextAssetIcon(PextAssets.videoWatch, size: 30),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: () {
+                    showDialog(
+                      context: context,
+                      builder: (_) => _ResinVideoPlayerDialog(video: vid),
+                    );
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Row(
                       children: [
-                        Text(
-                          vid.title,
-                          style: const TextStyle(
-                            color: _blue,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
+                        Container(
+                          width: 76,
+                          height: 54,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE5E7EB),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          alignment: Alignment.center,
+                          child: const PextAssetIcon(PextAssets.videoWatch, size: 30),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                vid.title,
+                                style: const TextStyle(
+                                  color: _blue,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                vid.duration.isNotEmpty ? vid.duration : '03:20',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: _blue,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        const SizedBox(height: 2),
-                        Text(
-                          vid.duration.isNotEmpty ? vid.duration : '03:20',
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: _blue,
-                          ),
-                        ),
+                        const Icon(Icons.play_circle_fill, size: 28, color: _blue),
                       ],
                     ),
                   ),
-                  const Icon(Icons.chevron_right, size: 22, color: _blue),
-                ],
+                ),
               ),
             )),
       ],
+    );
+  }
+}
+
+class _ResinVideoPlayerDialog extends StatefulWidget {
+  final ResinVideo video;
+  const _ResinVideoPlayerDialog({required this.video});
+
+  @override
+  State<_ResinVideoPlayerDialog> createState() => _ResinVideoPlayerDialogState();
+}
+
+class _ResinVideoPlayerDialogState extends State<_ResinVideoPlayerDialog> {
+  VideoPlayerController? _controller;
+  bool _isInitialized = false;
+  bool _hasError = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initPlayer();
+  }
+
+  void _initPlayer() async {
+    final rawUrl = widget.video.urlOrPath;
+    try {
+      if (rawUrl.startsWith('http://') || rawUrl.startsWith('https://')) {
+        _controller = VideoPlayerController.networkUrl(Uri.parse(rawUrl));
+      } else if (rawUrl.startsWith('/uploads/') || rawUrl.contains('uploads')) {
+        final fullUrl = ApiClient.instance.mediaUrl(rawUrl);
+        _controller = VideoPlayerController.networkUrl(Uri.parse(fullUrl));
+      } else if (rawUrl.isNotEmpty) {
+        final file = File(rawUrl.startsWith('file://') ? Uri.parse(rawUrl).toFilePath() : rawUrl);
+        if (file.existsSync()) {
+          _controller = VideoPlayerController.file(file);
+        } else {
+          final fullUrl = ApiClient.instance.mediaUrl(rawUrl);
+          _controller = VideoPlayerController.networkUrl(Uri.parse(fullUrl));
+        }
+      } else {
+        _controller = VideoPlayerController.networkUrl(Uri.parse(
+          'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+        ));
+      }
+
+      await _controller!.initialize();
+      _controller!.addListener(() {
+        if (mounted) setState(() {});
+      });
+      _controller!.play();
+      if (mounted) {
+        setState(() {
+          _isInitialized = true;
+          _hasError = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading video: $e');
+      if (mounted) {
+        setState(() {
+          _hasError = true;
+          _isInitialized = false;
+        });
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller?.dispose();
+    super.dispose();
+  }
+
+  String _formatDuration(Duration d) {
+    final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '$m:$s';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.black,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: const [
+            BoxShadow(color: Colors.black45, blurRadius: 16, offset: Offset(0, 4)),
+          ],
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Header
+            Container(
+              color: const Color(0xFF111827),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Row(
+                children: [
+                  const Icon(Icons.videocam, color: Colors.white, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      widget.video.title.isNotEmpty ? widget.video.title : 'Reprodução de Vídeo',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white70, size: 20),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+            ),
+            // Video Player
+            AspectRatio(
+              aspectRatio: _controller != null && _isInitialized && _controller!.value.aspectRatio > 0
+                  ? _controller!.value.aspectRatio
+                  : 16 / 9,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  if (_isInitialized && _controller != null)
+                    VideoPlayer(_controller!)
+                  else if (_hasError)
+                    Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.error_outline, color: Colors.redAccent, size: 42),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Não foi possível reproduzir o vídeo localmente.',
+                          style: TextStyle(color: Colors.white, fontSize: 13),
+                        ),
+                        if (widget.video.urlOrPath.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Text(
+                              widget.video.urlOrPath,
+                              style: const TextStyle(color: Colors.white54, fontSize: 10),
+                              textAlign: TextAlign.center,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                      ],
+                    )
+                  else
+                    const Center(child: CircularProgressIndicator(color: Colors.white)),
+                  if (_isInitialized && _controller != null)
+                    GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          if (_controller!.value.isPlaying) {
+                            _controller!.pause();
+                          } else {
+                            _controller!.play();
+                          }
+                        });
+                      },
+                      child: Container(
+                        color: Colors.transparent,
+                        child: Center(
+                          child: AnimatedOpacity(
+                            opacity: _controller!.value.isPlaying ? 0.0 : 0.85,
+                            duration: const Duration(milliseconds: 200),
+                            child: Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: const BoxDecoration(
+                                color: Colors.black54,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                _controller!.value.isPlaying ? Icons.pause : Icons.play_arrow,
+                                color: Colors.white,
+                                size: 36,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            // Controls Bar
+            if (_isInitialized && _controller != null)
+              Container(
+                color: const Color(0xFF111827),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                child: Column(
+                  children: [
+                    VideoProgressIndicator(
+                      _controller!,
+                      allowScrubbing: true,
+                      colors: const VideoProgressColors(
+                        playedColor: Color(0xFF2563EB),
+                        bufferedColor: Colors.white24,
+                        backgroundColor: Colors.white12,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '${_formatDuration(_controller!.value.position)} / ${_formatDuration(_controller!.value.duration)}',
+                          style: const TextStyle(color: Colors.white70, fontSize: 11),
+                        ),
+                        IconButton(
+                          visualDensity: VisualDensity.compact,
+                          icon: Icon(
+                            _controller!.value.isPlaying ? Icons.pause : Icons.play_arrow,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              if (_controller!.value.isPlaying) {
+                                _controller!.pause();
+                              } else {
+                                _controller!.play();
+                              }
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -2904,52 +3163,135 @@ class _ResinFormScreenState extends State<ResinFormScreen> {
     }
   }
 
-  Future<void> _openAddVideoDialog() async {
-    final titleCtrl = TextEditingController();
-    final durationCtrl = TextEditingController();
-    final urlCtrl = TextEditingController();
-
-    final result = await showDialog<ResinVideo>(
+  void _openAddVideoDialog() {
+    showModalBottomSheet(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Adicionar Vídeo'),
-        content: SingleChildScrollView(
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (sheetCtx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              TextField(
-                controller: titleCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Título do Vídeo *',
-                  hintText: 'Ex: Demonstração de Extrusão',
-                ),
+              const Text(
+                'Adicionar Vídeo',
+                style: TextStyle(color: _blue, fontWeight: FontWeight.bold, fontSize: 18),
               ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: durationCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Duração (ex: 04:30)',
-                  hintText: '04:30',
+              const SizedBox(height: 16),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF0F4FA),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.video_library_outlined, color: _blue),
                 ),
+                title: const Text('Selecionar da Galeria / Arquivos (.mp4, .mov)',
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                subtitle: const Text('Carregar arquivo do dispositivo', style: TextStyle(fontSize: 12)),
+                onTap: () async {
+                  Navigator.pop(sheetCtx);
+                  try {
+                    final files = await FilePicker.pickFiles(
+                      type: FileType.custom,
+                      allowedExtensions: ['mp4', 'mov'],
+                    );
+                    if (files.isNotEmpty) {
+                      final file = files.first;
+                      String finalUrl = file.path ?? file.name;
+                      try {
+                        final bytes = await file.readAsBytes();
+                        if (bytes.isNotEmpty) {
+                          final uploadedDoc = await ResinService.instance.uploadDocument(
+                            bytes: bytes,
+                            filename: file.name,
+                          );
+                          finalUrl = uploadedDoc.urlOrPath;
+                        }
+                      } catch (_) {}
+                      setState(() {
+                        _videos.add(ResinVideo(
+                          id: DateTime.now().millisecondsSinceEpoch.toString(),
+                          type: 'GALLERY',
+                          title: file.name.replaceAll(RegExp(r'\.[a-zA-Z0-9]+$'), ''),
+                          duration: '05:00',
+                          urlOrPath: finalUrl,
+                        ));
+                      });
+                    }
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Erro ao selecionar vídeo: $e')),
+                      );
+                    }
+                  }
+                },
               ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: urlCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Link do Vídeo (YouTube ou URL)',
-                  hintText: 'https://youtube.com/...',
+              const Divider(),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF0F4FA),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.link, color: _blue),
                 ),
+                title: const Text('Inserir Link de Vídeo Externo (URL)',
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                subtitle: const Text('YouTube, Vimeo ou link direto', style: TextStyle(fontSize: 12)),
+                onTap: () {
+                  Navigator.pop(sheetCtx);
+                  _showExternalVideoUrlDialog();
+                },
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  void _showExternalVideoUrlDialog() {
+    final titleCtrl = TextEditingController();
+    final urlCtrl = TextEditingController();
+    final durationCtrl = TextEditingController(text: '05:00');
+
+    showDialog(
+      context: context,
+      builder: (dlgCtx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text(
+          'Vídeo Externo',
+          style: TextStyle(color: _blue, fontWeight: FontWeight.bold),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: titleCtrl,
+              decoration: const InputDecoration(labelText: 'Título do vídeo', hintText: 'Ex: Demonstração de Resina'),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: urlCtrl,
+              decoration: const InputDecoration(labelText: 'URL do vídeo', hintText: 'https://...'),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: durationCtrl,
+              decoration: const InputDecoration(labelText: 'Duração estimada', hintText: 'Ex: 05:00'),
+            ),
+          ],
+        ),
         actions: [
           TextButton(
-            onPressed: () {
-              if (!ctx.mounted) return;
-              Navigator.pop(ctx);
-            },
+            onPressed: () => Navigator.pop(dlgCtx),
             child: const Text('Cancelar'),
           ),
           FilledButton(
@@ -2957,28 +3299,24 @@ class _ResinFormScreenState extends State<ResinFormScreen> {
             onPressed: () {
               final title = titleCtrl.text.trim();
               final url = urlCtrl.text.trim();
-              if (title.isEmpty) return;
-              if (!ctx.mounted) return;
-              Navigator.pop(
-                ctx,
-                ResinVideo(
-                  id: DateTime.now().millisecondsSinceEpoch.toString(),
-                  type: 'YOUTUBE',
-                  title: title,
-                  duration: durationCtrl.text.trim(),
-                  urlOrPath: url.isNotEmpty ? url : 'https://youtube.com',
-                ),
-              );
+              if (title.isNotEmpty && url.isNotEmpty) {
+                setState(() {
+                  _videos.add(ResinVideo(
+                    id: DateTime.now().millisecondsSinceEpoch.toString(),
+                    type: 'YOUTUBE',
+                    title: title,
+                    duration: durationCtrl.text.trim().isNotEmpty ? durationCtrl.text.trim() : '05:00',
+                    urlOrPath: url,
+                  ));
+                });
+                Navigator.pop(dlgCtx);
+              }
             },
             child: const Text('Adicionar'),
           ),
         ],
       ),
     );
-
-    if (result != null && mounted) {
-      setState(() => _videos.add(result));
-    }
   }
 
   List<TechnicalDatum> _buildTechnicalDataList() {
@@ -3867,58 +4205,72 @@ class _ResinFormScreenState extends State<ResinFormScreen> {
         else
           ..._videos.map((vid) => Container(
                 margin: const EdgeInsets.only(bottom: 8),
-                padding: const EdgeInsets.all(10),
                 decoration: _cardDecoration(),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 50,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF3F4F6),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      alignment: Alignment.center,
-                      child: const PextAssetIcon(PextAssets.videoWatch, size: 26),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(10),
+                    onTap: () {
+                      showDialog(
+                        context: context,
+                        builder: (_) => _ResinVideoPlayerDialog(video: vid),
+                      );
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.all(10),
+                      child: Row(
                         children: [
-                          Text(
-                            vid.title,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: _blue,
-                              fontSize: 13,
+                          Container(
+                            width: 50,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF3F4F6),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            alignment: Alignment.center,
+                            child: const PextAssetIcon(PextAssets.videoWatch, size: 26),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  vid.title,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: _blue,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                                if (vid.duration.isNotEmpty)
+                                  Text(
+                                    vid.duration,
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      color: _blue,
+                                    ),
+                                  ),
+                                Text(
+                                  vid.urlOrPath,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    color: _blue,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                          if (vid.duration.isNotEmpty)
-                            Text(
-                              vid.duration,
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: _blue,
-                              ),
-                            ),
-                          Text(
-                            vid.urlOrPath,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 10,
-                              color: _blue,
-                            ),
+                          IconButton(
+                            icon: const Icon(Icons.close, color: _red, size: 20),
+                            onPressed: () => setState(() => _videos.remove(vid)),
                           ),
                         ],
                       ),
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.close, color: _red, size: 20),
-                      onPressed: () => setState(() => _videos.remove(vid)),
-                    ),
-                  ],
+                  ),
                 ),
               )),
         const SizedBox(height: 8),
