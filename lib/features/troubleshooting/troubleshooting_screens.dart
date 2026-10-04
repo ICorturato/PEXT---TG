@@ -1628,7 +1628,13 @@ class _Field extends StatelessWidget {
                 fillColor: Colors.white,
                 border: const OutlineInputBorder(
                     borderRadius: BorderRadius.all(Radius.circular(10)),
-                    borderSide: BorderSide(color: _border))))
+                    borderSide: BorderSide(color: _border)),
+                enabledBorder: const OutlineInputBorder(
+                    borderRadius: BorderRadius.all(Radius.circular(10)),
+                    borderSide: BorderSide(color: _border)),
+                focusedBorder: const OutlineInputBorder(
+                    borderRadius: BorderRadius.all(Radius.circular(10)),
+                    borderSide: BorderSide(color: _blue, width: 1.5))))
       ]));
 }
 

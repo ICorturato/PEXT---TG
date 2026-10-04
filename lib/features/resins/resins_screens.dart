@@ -6,12 +6,14 @@ import 'package:image_picker/image_picker.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../app_routes.dart';
+import '../../models/app_category.dart';
 import '../../models/resin_model.dart';
 import '../../services/api_client.dart';
 import '../../services/favorites_service.dart';
 import '../../services/file_download_service.dart';
 import '../../services/resin_service.dart';
 import '../../widgets/pext_asset_icon.dart';
+import '../core/category_management_screen.dart';
 
 const _blue = Color(0xFF053488);
 const _navy = Color(0xFF053488); // #053488 for titles and subtitles
@@ -3661,42 +3663,14 @@ class _ResinFormScreenState extends State<ResinFormScreen> {
           controller: _descriptionController,
           lines: 3,
         ),
-        // Scoped Category Dropdown
-        const Text(
-          'Categoria:',
-          style: TextStyle(
-            color: _blue,
-            fontWeight: FontWeight.w600,
-            fontSize: 13,
-          ),
-        ),
-        const SizedBox(height: 5),
-        DropdownButtonFormField<String>(
-          initialValue: _selectedCategoryId,
-          items: categories.map((cat) {
-            return DropdownMenuItem<String>(
-              value: cat.id,
-              child: Text(cat.name),
-            );
-          }).toList(),
+        ScopedCategoryPicker(
+          scope: CategoryScope.resin,
+          value: _selectedCategoryId,
           onChanged: (val) {
             setState(() {
               _selectedCategoryId = val;
-              final found = categories.where((c) => c.id == val);
-              if (found.isNotEmpty) {
-                _selectedCategoryName = found.first.name;
-              }
             });
           },
-          decoration: const InputDecoration(
-            hintText: 'Selecione a categoria',
-            filled: true,
-            fillColor: Colors.white,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.all(Radius.circular(10)),
-              borderSide: BorderSide(color: _border),
-            ),
-          ),
         ),
         const SizedBox(height: 14),
         // Subcategory Dropdown (Optional)
@@ -4184,13 +4158,15 @@ class _ResinFormScreenState extends State<ResinFormScreen> {
           width: double.infinity,
           child: OutlinedButton.icon(
             style: OutlinedButton.styleFrom(
-              foregroundColor: _blue,
-              side: const BorderSide(color: _blue),
-              padding: const EdgeInsets.symmetric(vertical: 12),
+              minimumSize: const Size(0, 48),
+              foregroundColor: const Color(0xFF053488),
+              backgroundColor: Colors.white,
+              side: const BorderSide(color: Color(0xFFE5E7EB), width: 1.5),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
             onPressed: _pickDocument,
-            icon: const Icon(Icons.add, size: 18),
-            label: const Text('Anexar Documento (PDF)'),
+            icon: const Icon(Icons.add_circle_outline, size: 20, color: Color(0xFF053488)),
+            label: const Text('ANEXAR DOCUMENTO (PDF)', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF053488))),
           ),
         ),
         const SizedBox(height: 24),
@@ -4278,13 +4254,15 @@ class _ResinFormScreenState extends State<ResinFormScreen> {
           width: double.infinity,
           child: OutlinedButton.icon(
             style: OutlinedButton.styleFrom(
-              foregroundColor: _blue,
-              side: const BorderSide(color: _blue),
-              padding: const EdgeInsets.symmetric(vertical: 12),
+              minimumSize: const Size(0, 48),
+              foregroundColor: const Color(0xFF053488),
+              backgroundColor: Colors.white,
+              side: const BorderSide(color: Color(0xFFE5E7EB), width: 1.5),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
             onPressed: _openAddVideoDialog,
-            icon: const Icon(Icons.add, size: 18),
-            label: const Text('Adicionar Vídeo'),
+            icon: const Icon(Icons.add_circle_outline, size: 20, color: Color(0xFF053488)),
+            label: const Text('ADICIONAR VÍDEO', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF053488))),
           ),
         ),
       ],
@@ -4321,6 +4299,14 @@ class _ResinFormScreenState extends State<ResinFormScreen> {
               border: const OutlineInputBorder(
                 borderRadius: BorderRadius.all(Radius.circular(10)),
                 borderSide: BorderSide(color: _border),
+              ),
+              enabledBorder: const OutlineInputBorder(
+                borderRadius: BorderRadius.all(Radius.circular(10)),
+                borderSide: BorderSide(color: _border),
+              ),
+              focusedBorder: const OutlineInputBorder(
+                borderRadius: BorderRadius.all(Radius.circular(10)),
+                borderSide: BorderSide(color: _blue, width: 1.5),
               ),
             ),
           ),

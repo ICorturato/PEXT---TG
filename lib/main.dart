@@ -38,6 +38,34 @@ class PextApp extends StatelessWidget {
             bodyMedium: TextStyle(fontSize: 14),
             bodySmall: TextStyle(fontSize: 12),
           ),
+          outlinedButtonTheme: OutlinedButtonThemeData(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: _blue,
+              side: const BorderSide(color: Color(0xFFE5E7EB), width: 1.5),
+              backgroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              minimumSize: const Size(0, 48),
+            ),
+          ),
+          inputDecorationTheme: InputDecorationTheme(
+            filled: true,
+            fillColor: Colors.white,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: Color(0xFF053488), width: 1.5),
+            ),
+          ),
         ),
         home: const LoginPage(),
         onGenerateRoute: (settings) {
@@ -1139,12 +1167,25 @@ class _ActionTrainingCard extends StatelessWidget {
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(wide ? 30 : 9),
-              child: Image.asset(
-                'images/training_extrusion.png',
-                width: coverSize,
-                height: coverSize,
-                fit: BoxFit.cover,
-              ),
+              child: training.thumbnailUrl != null && training.thumbnailUrl!.isNotEmpty
+                  ? Image.network(
+                      ApiClient.instance.resolveMediaUrl(training.thumbnailUrl!),
+                      width: coverSize,
+                      height: coverSize,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Image.asset(
+                        'images/training_extrusion.png',
+                        width: coverSize,
+                        height: coverSize,
+                        fit: BoxFit.cover,
+                      ),
+                    )
+                  : Image.asset(
+                      'images/training_extrusion.png',
+                      width: coverSize,
+                      height: coverSize,
+                      fit: BoxFit.cover,
+                    ),
             ),
             SizedBox(width: wide ? 30 : 10),
             Expanded(
@@ -1860,12 +1901,25 @@ class _DynamicFavoriteTrainingCard extends StatelessWidget {
             children: [
               ClipRRect(
                 borderRadius: BorderRadius.circular(12),
-                child: Image.asset(
-                  'images/training_extrusion.png',
-                  width: 60,
-                  height: 60,
-                  fit: BoxFit.cover,
-                ),
+                child: (liveTraining.thumbnailUrl != null && liveTraining.thumbnailUrl!.isNotEmpty)
+                    ? Image.network(
+                        ApiClient.instance.resolveMediaUrl(liveTraining.thumbnailUrl!),
+                        width: 60,
+                        height: 60,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Image.asset(
+                          'images/training_extrusion.png',
+                          width: 60,
+                          height: 60,
+                          fit: BoxFit.cover,
+                        ),
+                      )
+                    : Image.asset(
+                        'images/training_extrusion.png',
+                        width: 60,
+                        height: 60,
+                        fit: BoxFit.cover,
+                      ),
               ),
               const SizedBox(width: 10),
               Expanded(

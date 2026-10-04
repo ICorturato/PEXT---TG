@@ -109,7 +109,8 @@ void main() {
     expect(find.text('Descrição curta'), findsOneWidget);
     expect(find.text('Vídeos do módulo'), findsOneWidget);
     expect(find.text('Documentos'), findsOneWidget);
-    expect(find.text('ADICIONAR'), findsWidgets);
+    expect(find.text('ADICIONAR VÍDEO'), findsOneWidget);
+    expect(find.text('ADICIONAR DOCUMENTO'), findsOneWidget);
     expect(find.text('CADASTRAR'), findsOneWidget);
   });
 

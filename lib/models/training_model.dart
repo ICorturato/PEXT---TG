@@ -434,6 +434,7 @@ class TrainingModel {
         if (categoryIcon != null) 'categoryIcon': categoryIcon,
         if (workload != null) 'workload': workload,
         if (thumbnailUrl != null) 'thumbnailUrl': thumbnailUrl,
+        if (thumbnailUrl != null) 'imageUrl': thumbnailUrl,
         'passingGrade': passingGrade,
         'questionCount': questionCount,
         'totalSteps': totalSteps,

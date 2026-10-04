@@ -36,7 +36,7 @@ void main() {
     expect(find.text('Nome técnico (opcional):'), findsOneWidget);
     expect(find.text('Sigla:'), findsOneWidget);
     expect(find.text('Descrição curta (multiline):'), findsOneWidget);
-    expect(find.text('Categoria:'), findsOneWidget);
+    expect(find.text('Categoria'), findsOneWidget);
     expect(find.text('Subcategoria (opcional):'), findsOneWidget);
     expect(find.text('Gerenciar Etapas'), findsOneWidget);
     expect(find.text('Gerenciar Aplicações'), findsOneWidget);
@@ -71,9 +71,9 @@ void main() {
     await tester.tap(find.text('Mais'));
     await tester.pumpAndSettle();
     expect(find.text('Documentos:'), findsOneWidget);
-    expect(find.text('Anexar Documento (PDF)'), findsOneWidget);
+    expect(find.text('ANEXAR DOCUMENTO (PDF)'), findsOneWidget);
     expect(find.text('Vídeos:'), findsOneWidget);
-    expect(find.text('Adicionar Vídeo'), findsOneWidget);
+    expect(find.text('ADICIONAR VÍDEO'), findsOneWidget);
     expect(find.text('Perguntas frequentes'), findsNothing); // FAQ completely removed!
     expect(find.text('CADASTRAR'), findsOneWidget);
   });

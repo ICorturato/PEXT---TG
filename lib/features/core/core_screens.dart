@@ -683,10 +683,18 @@ class _CadastroTermoScreenState extends State<CadastroTermoScreen> {
               ]),
           SizedBox(
               width: double.infinity,
-              child: OutlinedButton(
+              child: OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(0, 48),
+                    foregroundColor: const Color(0xFF053488),
+                    backgroundColor: Colors.white,
+                    side: const BorderSide(color: Color(0xFFE5E7EB), width: 1.5),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
                   onPressed: () =>
                       setState(() => _topics.add(_TermTopicDraft())),
-                  child: const Text('ADICIONAR TÓPICO'))),
+                  icon: const Icon(Icons.add_circle_outline, color: Color(0xFF053488), size: 20),
+                  label: const Text('ADICIONAR TÓPICO', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF053488))))),
           const SizedBox(height: 14),
           ScopedCategoryPicker(
               scope: CategoryScope.terms,
@@ -709,9 +717,16 @@ class _CadastroTermoScreenState extends State<CadastroTermoScreen> {
           SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(0, 48),
+                    foregroundColor: const Color(0xFF053488),
+                    backgroundColor: Colors.white,
+                    side: const BorderSide(color: Color(0xFFE5E7EB), width: 1.5),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
                   onPressed: _pickImage,
-                  icon: const Icon(Icons.add_circle_outline),
-                  label: const Text('ADICIONAR IMAGEM'))),
+                  icon: const Icon(Icons.add_circle_outline, color: Color(0xFF053488), size: 20),
+                  label: const Text('ADICIONAR IMAGEM', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF053488))))),
           const SizedBox(height: 16),
           const Text('Termos Relacionados',
               style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
@@ -763,10 +778,15 @@ class _TermFormField extends StatelessWidget {
             decoration: InputDecoration(
                 hintText: hint,
                 filled: true,
-                fillColor: Colors.white,
                 border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(15),
-                    borderSide: const BorderSide(color: _border))))
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: _border)),
+                enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: _border)),
+                focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: _blue, width: 1.5))))
       ]));
 }
 
@@ -4888,14 +4908,15 @@ class _ModuleEditorScreenState extends State<ModuleEditorScreen> {
           width: double.infinity,
           child: OutlinedButton.icon(
             style: OutlinedButton.styleFrom(
-              minimumSize: const Size(0, 42),
+              minimumSize: const Size(0, 48),
               foregroundColor: const Color(0xFF053488),
-              side: const BorderSide(color: Color(0xFF053488)),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(21)),
+              backgroundColor: Colors.white,
+              side: const BorderSide(color: Color(0xFFE5E7EB), width: 1.5),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
             onPressed: _addVideo,
-            icon: const Icon(Icons.add_circle_outline, size: 18),
-            label: const Text('ADICIONAR', style: TextStyle(fontWeight: FontWeight.bold)),
+            icon: const Icon(Icons.add_circle_outline, size: 20, color: Color(0xFF053488)),
+            label: const Text('ADICIONAR VÍDEO', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF053488))),
           ),
         ),
         const SizedBox(height: 16),
@@ -4942,14 +4963,15 @@ class _ModuleEditorScreenState extends State<ModuleEditorScreen> {
           width: double.infinity,
           child: OutlinedButton.icon(
             style: OutlinedButton.styleFrom(
-              minimumSize: const Size(0, 42),
+              minimumSize: const Size(0, 48),
               foregroundColor: const Color(0xFF053488),
-              side: const BorderSide(color: Color(0xFF053488)),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(21)),
+              backgroundColor: Colors.white,
+              side: const BorderSide(color: Color(0xFFE5E7EB), width: 1.5),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
             onPressed: _addDocument,
-            icon: const Icon(Icons.add_circle_outline, size: 18),
-            label: const Text('ADICIONAR', style: TextStyle(fontWeight: FontWeight.bold)),
+            icon: const Icon(Icons.add_circle_outline, size: 20, color: Color(0xFF053488)),
+            label: const Text('ADICIONAR DOCUMENTO', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF053488))),
           ),
         ),
         const SizedBox(height: 24),
@@ -5588,14 +5610,15 @@ class _AdminQuestionEditorScreenState
                     width: double.infinity,
                     child: OutlinedButton.icon(
                       style: OutlinedButton.styleFrom(
-                        minimumSize: const Size(0, 44),
+                        minimumSize: const Size(0, 48),
                         foregroundColor: const Color(0xFF053488),
-                        side: const BorderSide(color: Color(0xFF053488)),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+                        backgroundColor: Colors.white,
+                        side: const BorderSide(color: Color(0xFFE5E7EB), width: 1.5),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
                       onPressed: () => _editAlternative(null),
-                      icon: const Icon(Icons.add),
-                      label: const Text('ADICIONAR ALTERNATIVA', style: TextStyle(fontWeight: FontWeight.bold)),
+                      icon: const Icon(Icons.add_circle_outline, size: 20, color: Color(0xFF053488)),
+                      label: const Text('ADICIONAR ALTERNATIVA', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF053488))),
                     ),
                   ),
                 ),
@@ -7714,14 +7737,15 @@ class _CadastroConteudoScreenState extends State<CadastroConteudoScreen> {
                 width: double.infinity,
                 child: OutlinedButton.icon(
                   onPressed: _addDocument,
-                  icon: const Icon(Icons.add_circle_outline),
-                  label: const Text('ADICIONAR DOCUMENTO'),
+                  icon: const Icon(Icons.add_circle_outline, size: 20, color: Color(0xFF053488)),
+                  label: const Text('ADICIONAR DOCUMENTO', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF053488))),
                   style: OutlinedButton.styleFrom(
-                    minimumSize: const Size(0, 42),
-                    foregroundColor: _blue,
-                    side: const BorderSide(color: Color(0xFFCBD5E1)),
+                    minimumSize: const Size(0, 48),
+                    foregroundColor: const Color(0xFF053488),
+                    backgroundColor: Colors.white,
+                    side: const BorderSide(color: Color(0xFFE5E7EB), width: 1.5),
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10)),
+                        borderRadius: BorderRadius.circular(12)),
                   ),
                 ),
               ),
@@ -8841,9 +8865,16 @@ class _PackagingRegistrationScreenState
           SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(0, 48),
+                    foregroundColor: const Color(0xFF053488),
+                    backgroundColor: Colors.white,
+                    side: const BorderSide(color: Color(0xFFE5E7EB), width: 1.5),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
                   onPressed: _showAddExtraVerification,
-                  icon: const Icon(Icons.add_circle_outline),
-                  label: const Text('Adicionar Verificação Extra'))),
+                  icon: const Icon(Icons.add_circle_outline, size: 20, color: Color(0xFF053488)),
+                  label: const Text('ADICIONAR VERIFICAÇÃO EXTRA', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF053488))))),
         ]);
       default:
         return const SizedBox.shrink();
@@ -10231,8 +10262,25 @@ class _TrainingTile extends StatelessWidget {
                       borderRadius: BorderRadius.circular(9)),
                   child: ClipRRect(
                       borderRadius: BorderRadius.circular(9),
-                      child: Image.asset('images/training_extrusion.png',
-                          fit: BoxFit.cover))),
+                      child: (training?.thumbnailUrl != null && training!.thumbnailUrl!.isNotEmpty)
+                          ? Image.network(
+                              ApiClient.instance.resolveMediaUrl(training!.thumbnailUrl!),
+                              width: 58,
+                              height: 58,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => Image.asset(
+                                'images/training_extrusion.png',
+                                width: 58,
+                                height: 58,
+                                fit: BoxFit.cover,
+                              ),
+                            )
+                          : Image.asset(
+                              'images/training_extrusion.png',
+                              width: 58,
+                              height: 58,
+                              fit: BoxFit.cover,
+                            ))),
               const SizedBox(width: 10),
               Expanded(
                   child: Column(
@@ -10458,7 +10506,13 @@ class _Field extends StatelessWidget {
                 fillColor: Colors.white,
                 border: const OutlineInputBorder(
                     borderRadius: BorderRadius.all(Radius.circular(10)),
-                    borderSide: BorderSide(color: _border))))
+                    borderSide: BorderSide(color: _border)),
+                enabledBorder: const OutlineInputBorder(
+                    borderRadius: BorderRadius.all(Radius.circular(10)),
+                    borderSide: BorderSide(color: _border)),
+                focusedBorder: const OutlineInputBorder(
+                    borderRadius: BorderRadius.all(Radius.circular(10)),
+                    borderSide: BorderSide(color: _blue, width: 1.5))))
       ]));
 }
 
@@ -10557,22 +10611,28 @@ class _AttachmentPreview extends StatelessWidget {
 class _AddContentButton extends StatelessWidget {
   final VoidCallback onTap;
   final String label;
-  const _AddContentButton({required this.onTap, this.label = 'ADICIONAR'});
+  final IconData icon;
+  const _AddContentButton({
+    required this.onTap,
+    this.label = 'ADICIONAR',
+    this.icon = Icons.add_circle_outline,
+  });
   @override
   Widget build(BuildContext context) => SizedBox(
       width: double.infinity,
       child: OutlinedButton.icon(
           style: OutlinedButton.styleFrom(
             minimumSize: const Size(0, 48),
-            foregroundColor: _blue,
-            side: const BorderSide(color: _blue, width: 1.5),
+            foregroundColor: const Color(0xFF053488),
+            backgroundColor: Colors.white,
+            side: const BorderSide(color: Color(0xFFE5E7EB), width: 1.5),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
             ),
           ),
           onPressed: onTap,
-          icon: const Icon(Icons.add_circle_outline, size: 20),
-          label: Text(label, style: const TextStyle(fontWeight: FontWeight.bold))));
+          icon: Icon(icon, size: 20, color: const Color(0xFF053488)),
+          label: Text(label, style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF053488)))));
 }
 
 class TrainingSuccessDialog extends StatelessWidget {
