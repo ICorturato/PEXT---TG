@@ -94,6 +94,16 @@ String? _getAssetForApplication(String name, {String? customIcon}) {
       case 'temperature':
       case 'temperatura':
         return PextAssets.temperature;
+      case 'extrusion':
+      case 'extrusao':
+        return PextAssets.extrusion;
+      case 'filtration':
+      case 'filter':
+      case 'filtragem':
+        return PextAssets.filtration;
+      case 'cooling':
+      case 'resfriamento':
+        return PextAssets.cooling;
     }
   }
 
@@ -164,6 +174,36 @@ String? _getAssetForFlowStep(String iconName, String title, int order) {
     case 'finalproduct':
     case 'product':
       return PextAssets.finalProduct;
+    case 'extrusion':
+    case 'extrusao':
+    case 'settings':
+    case 'gear':
+      return PextAssets.extrusion;
+    case 'filter':
+    case 'filtragem':
+    case 'filtration':
+      return PextAssets.filtration;
+    case 'cooling':
+    case 'resfriamento':
+    case 'water':
+    case 'gota':
+      return PextAssets.cooling;
+    case 'thermostat':
+    case 'temperature':
+    case 'temperatura':
+    case 'heating':
+    case 'aquecimento':
+      return PextAssets.temperature;
+    case 'factory':
+    case 'fabrica':
+    case 'industria':
+    case 'industry':
+      return PextAssets.factory;
+    case 'science':
+    case 'lab':
+    case 'laboratorio':
+    case 'quimica':
+      return PextAssets.lab;
     case 'packaging':
       return PextAssets.packaging;
     case 'car':
@@ -171,6 +211,24 @@ String? _getAssetForFlowStep(String iconName, String title, int order) {
   }
 
   final lower = '$iconName $title'.toLowerCase();
+  if (lower.contains('extrus') || lower.contains('rosca') || lower.contains('matriz') || lower.contains('engrenag')) {
+    return PextAssets.extrusion;
+  }
+  if (lower.contains('filtr') || lower.contains('peneira') || lower.contains('funil')) {
+    return PextAssets.filtration;
+  }
+  if (lower.contains('resfri') || lower.contains('chiller') || lower.contains('água') || lower.contains('agua') || lower.contains('banho')) {
+    return PextAssets.cooling;
+  }
+  if (lower.contains('aquec') || lower.contains('aquecer') || lower.contains('temperatura') || lower.contains('térmic') || lower.contains('termic')) {
+    return PextAssets.temperature;
+  }
+  if (lower.contains('fábrica') || lower.contains('fabrica') || lower.contains('linha') || lower.contains('planta')) {
+    return PextAssets.factory;
+  }
+  if (lower.contains('laborat') || lower.contains('químic') || lower.contains('quimic') || lower.contains('análise') || lower.contains('analise')) {
+    return PextAssets.lab;
+  }
   if (lower.contains('material') || lower.contains('matéria') || lower.contains('materia') || lower.contains('propen') || lower.contains('hub')) {
     return PextAssets.material;
   }
@@ -2072,15 +2130,15 @@ class _GerenciarEtapasFluxogramaScreenState
     {'key': 'material', 'label': 'Matéria-Prima', 'asset': PextAssets.material},
     {'key': 'polimerization', 'label': 'Polimerização', 'asset': PextAssets.polimerization},
     {'key': 'granulation', 'label': 'Granulação', 'asset': PextAssets.granulation},
+    {'key': 'extrusion', 'label': 'Extrusão', 'asset': PextAssets.extrusion},
+    {'key': 'filter', 'label': 'Filtragem', 'asset': PextAssets.filtration},
+    {'key': 'cooling', 'label': 'Resfriamento', 'asset': PextAssets.cooling},
+    {'key': 'thermostat', 'label': 'Aquecimento', 'asset': PextAssets.temperature},
+    {'key': 'factory', 'label': 'Fábrica / Linha', 'asset': PextAssets.factory},
+    {'key': 'science', 'label': 'Laboratório', 'asset': PextAssets.lab},
     {'key': 'final_product', 'label': 'Produto Final', 'asset': PextAssets.finalProduct},
     {'key': 'packaging', 'label': 'Embalagem', 'asset': PextAssets.packaging},
     {'key': 'car', 'label': 'Automotivo', 'asset': PextAssets.car},
-    {'key': 'factory', 'label': 'Fábrica / Linha', 'icon': Icons.factory_outlined},
-    {'key': 'science', 'label': 'Laboratório', 'icon': Icons.science_outlined},
-    {'key': 'filter', 'label': 'Filtragem', 'icon': Icons.filter_alt_outlined},
-    {'key': 'thermostat', 'label': 'Aquecimento', 'icon': Icons.thermostat_outlined},
-    {'key': 'settings', 'label': 'Extrusão', 'icon': Icons.settings_suggest_outlined},
-    {'key': 'water', 'label': 'Resfriamento', 'icon': Icons.water_drop_outlined},
   ];
 
   @override
@@ -2531,6 +2589,9 @@ class _GerenciarAplicacoesScreenState extends State<GerenciarAplicacoesScreen> {
     {'key': 'lab', 'label': 'Laboratório / Química', 'asset': PextAssets.lab},
     {'key': 'density', 'label': 'Densidade', 'asset': PextAssets.density},
     {'key': 'temperature', 'label': 'Temperatura', 'asset': PextAssets.temperature},
+    {'key': 'extrusion', 'label': 'Extrusão', 'asset': PextAssets.extrusion},
+    {'key': 'filtration', 'label': 'Filtragem', 'asset': PextAssets.filtration},
+    {'key': 'cooling', 'label': 'Resfriamento', 'asset': PextAssets.cooling},
     {'key': 'material', 'label': 'Matéria-Prima / Resina', 'asset': PextAssets.material},
   ];
 
@@ -3839,7 +3900,11 @@ class _ResinFormScreenState extends State<ResinFormScreen> {
                   children: _flowSteps.map((s) => Chip(
                     visualDensity: VisualDensity.compact,
                     backgroundColor: const Color(0xFFEAF2FF),
-                    avatar: Icon(_getFlowStepIcon(s.iconName, s.order), size: 16, color: _blue),
+                    avatar: () {
+                      final asset = _getAssetForFlowStep(s.iconName, s.title, s.order);
+                      if (asset != null) return PextAssetIcon(asset, size: 16);
+                      return Icon(_getFlowStepIcon(s.iconName, s.order), size: 16, color: _blue);
+                    }(),
                     label: Text(s.title.replaceAll('\n', ' '), style: const TextStyle(fontSize: 11, color: _blue)),
                   )).toList(),
                 ),

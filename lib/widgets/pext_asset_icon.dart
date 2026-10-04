@@ -48,6 +48,9 @@ class PextAssets {
   static const construction = 'icons/resins/construction.png';
   static const health = 'icons/resins/health.png';
   static const agriculturalFilms = 'icons/resins/agricultural_films.png';
+  static const filtration = 'icons/resins/filter.png';
+  static const cooling = 'icons/resins/cooling.png';
+  static const extrusion = 'icons/resins/extrusion.png';
   static const home = 'icons/navigation/home.png';
   static const homeActive = 'icons/navigation/home_2.png';
   static const profile = 'icons/navigation/profile.png';

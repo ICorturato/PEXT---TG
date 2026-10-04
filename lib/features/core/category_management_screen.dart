@@ -62,6 +62,16 @@ String? _getAssetForIconKey(String key) {
     case 'agricultural_films':
     case 'filmes_agricolas':
       return PextAssets.agriculturalFilms;
+    case 'filtration':
+    case 'filter':
+    case 'filtragem':
+      return PextAssets.filtration;
+    case 'cooling':
+    case 'resfriamento':
+      return PextAssets.cooling;
+    case 'extrusion':
+    case 'extrusao':
+      return PextAssets.extrusion;
     default:
       return null;
   }
@@ -457,6 +467,9 @@ class _CategoryEditDialogState extends State<_CategoryEditDialog> {
     {'key': 'construction', 'label': 'Construção Civil', 'asset': PextAssets.construction},
     {'key': 'health', 'label': 'Saúde', 'asset': PextAssets.health},
     {'key': 'agricultural_films', 'label': 'Filmes Agrícolas', 'asset': PextAssets.agriculturalFilms},
+    {'key': 'extrusion', 'label': 'Extrusão', 'asset': PextAssets.extrusion},
+    {'key': 'filtration', 'label': 'Filtragem', 'asset': PextAssets.filtration},
+    {'key': 'cooling', 'label': 'Resfriamento', 'asset': PextAssets.cooling},
   ];
 
   @override
