@@ -25,6 +25,7 @@ String? _getAssetForIconKey(String key) {
     case 'density':
       return PextAssets.density;
     case 'temperature':
+    case 'high_temperature':
       return PextAssets.temperature;
     case 'mfi':
       return PextAssets.mfi;
@@ -36,6 +37,31 @@ String? _getAssetForIconKey(String key) {
       return PextAssets.joys;
     case 'house_machines':
       return PextAssets.houseMachines;
+    case 'pipes':
+    case 'tubos':
+      return PextAssets.pipes;
+    case 'lab':
+    case 'quimica':
+      return PextAssets.lab;
+    case 'factory':
+    case 'industry':
+    case 'industrial':
+    case 'industrial_geral':
+      return PextAssets.factory;
+    case 'furniture':
+    case 'moveis':
+      return PextAssets.furniture;
+    case 'construction':
+    case 'construcao':
+    case 'construcao_civil':
+      return PextAssets.construction;
+    case 'health':
+    case 'saude':
+    case 'medical':
+      return PextAssets.health;
+    case 'agricultural_films':
+    case 'filmes_agricolas':
+      return PextAssets.agriculturalFilms;
     default:
       return null;
   }
@@ -424,6 +450,13 @@ class _CategoryEditDialogState extends State<_CategoryEditDialog> {
     {'key': 'jar', 'label': 'Frascos', 'asset': PextAssets.jar},
     {'key': 'joys', 'label': 'Brinquedos', 'asset': PextAssets.joys},
     {'key': 'house_machines', 'label': 'Eletros', 'asset': PextAssets.houseMachines},
+    {'key': 'pipes', 'label': 'Tubos', 'asset': PextAssets.pipes},
+    {'key': 'lab', 'label': 'Laboratório/Química', 'asset': PextAssets.lab},
+    {'key': 'factory', 'label': 'Industrial Geral', 'asset': PextAssets.factory},
+    {'key': 'furniture', 'label': 'Móveis', 'asset': PextAssets.furniture},
+    {'key': 'construction', 'label': 'Construção Civil', 'asset': PextAssets.construction},
+    {'key': 'health', 'label': 'Saúde', 'asset': PextAssets.health},
+    {'key': 'agricultural_films', 'label': 'Filmes Agrícolas', 'asset': PextAssets.agriculturalFilms},
   ];
 
   @override

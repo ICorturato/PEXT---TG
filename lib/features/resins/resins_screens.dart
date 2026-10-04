@@ -32,29 +32,87 @@ String? _getAssetForApplication(String name, {String? customIcon}) {
   if (customIcon != null && customIcon.isNotEmpty) {
     switch (customIcon) {
       case 'car':
+      case 'automotivo':
         return PextAssets.car;
       case 'box':
       case 'packaging':
+      case 'embalagens':
         return PextAssets.packaging;
       case 'bottle':
       case 'jar':
+      case 'frascos':
+      case 'tampas':
         return PextAssets.jar;
       case 'clothes':
       case 'fiber':
+      case 'fibras':
         return PextAssets.fiber;
       case 'washer':
       case 'house_machines':
       case 'houseMachines':
+      case 'eletros':
         return PextAssets.houseMachines;
       case 'toy':
       case 'joys':
+      case 'brinquedos':
         return PextAssets.joys;
       case 'material':
         return PextAssets.material;
+      case 'pipe':
+      case 'pipes':
+      case 'tubos':
+      case 'encanamento':
+        return PextAssets.pipes;
+      case 'film':
+      case 'agricultural_films':
+      case 'filmes_agricolas':
+        return PextAssets.agriculturalFilms;
+      case 'med':
+      case 'health':
+      case 'saude':
+      case 'medicina':
+        return PextAssets.health;
+      case 'tool':
+      case 'construction':
+      case 'construcao':
+      case 'construcao_civil':
+        return PextAssets.construction;
+      case 'furniture':
+      case 'moveis':
+        return PextAssets.furniture;
+      case 'industry':
+      case 'factory':
+      case 'industrial':
+      case 'industrial_geral':
+        return PextAssets.factory;
+      case 'lab':
+      case 'quimica':
+        return PextAssets.lab;
+      case 'density':
+      case 'densidade':
+        return PextAssets.density;
+      case 'temperature':
+      case 'temperatura':
+        return PextAssets.temperature;
     }
   }
 
   final lower = name.toLowerCase();
+  if (lower.contains('tubo') || lower.contains('tubula') || lower.contains('encanamento')) {
+    return PextAssets.pipes;
+  }
+  if (lower.contains('móve') || lower.contains('move') || lower.contains('mobili') || lower.contains('poltrona') || lower.contains('assento') || lower.contains('cadeira')) {
+    return PextAssets.furniture;
+  }
+  if (lower.contains('constru') || lower.contains('civil') || lower.contains('edifica') || lower.contains('obra') || lower.contains('guindaste')) {
+    return PextAssets.construction;
+  }
+  if (lower.contains('saúde') || lower.contains('saude') || lower.contains('médic') || lower.contains('medic') || lower.contains('hospital') || lower.contains('farmac') || lower.contains('cruz')) {
+    return PextAssets.health;
+  }
+  if (lower.contains('agrícol') || lower.contains('agricol') || lower.contains('mulching') || lower.contains('estufa') || lower.contains('bolha') || lower.contains('filme agrícola') || lower.contains('filmes agrícolas')) {
+    return PextAssets.agriculturalFilms;
+  }
   if (lower.contains('embalag') || lower.contains('filme') || lower.contains('sacol') || lower.contains('pouch')) {
     return PextAssets.packaging;
   }
@@ -72,6 +130,18 @@ String? _getAssetForApplication(String name, {String? customIcon}) {
   }
   if (lower.contains('brinqued') || lower.contains('lazer') || lower.contains('infantil') || lower.contains('bens')) {
     return PextAssets.joys;
+  }
+  if (lower.contains('químic') || lower.contains('quimic') || lower.contains('lab') || lower.contains('reagente')) {
+    return PextAssets.lab;
+  }
+  if (lower.contains('industri') || lower.contains('fábrica') || lower.contains('fabrica') || lower.contains('manufatura')) {
+    return PextAssets.factory;
+  }
+  if (lower.contains('densidade')) {
+    return PextAssets.density;
+  }
+  if (lower.contains('temperatura')) {
+    return PextAssets.temperature;
   }
   return null;
 }
@@ -2439,8 +2509,10 @@ class _GerenciarAplicacoesScreenState extends State<GerenciarAplicacoesScreen> {
     'Brinquedos e bens de consumo',
     'Tubos e Conexões',
     'Filmes Agrícolas',
-    'Frascos e Garrafas',
     'Construção Civil',
+    'Saúde e Hospitalar',
+    'Móveis e Mobiliário',
+    'Indústria Geral',
   ];
 
   final List<Map<String, dynamic>> _appIconOptions = [
@@ -2450,13 +2522,16 @@ class _GerenciarAplicacoesScreenState extends State<GerenciarAplicacoesScreen> {
     {'key': 'car', 'label': 'Peças Automotivas', 'asset': PextAssets.car},
     {'key': 'washer', 'label': 'Eletrodomésticos', 'asset': PextAssets.houseMachines},
     {'key': 'toy', 'label': 'Brinquedos e Bens', 'asset': PextAssets.joys},
+    {'key': 'pipe', 'label': 'Tubos / Encanamento', 'asset': PextAssets.pipes},
+    {'key': 'film', 'label': 'Filmes Agrícolas', 'asset': PextAssets.agriculturalFilms},
+    {'key': 'med', 'label': 'Saúde / Medicina', 'asset': PextAssets.health},
+    {'key': 'tool', 'label': 'Construção Civil', 'asset': PextAssets.construction},
+    {'key': 'furniture', 'label': 'Móveis / Utilidades', 'asset': PextAssets.furniture},
+    {'key': 'industry', 'label': 'Indústria Geral', 'asset': PextAssets.factory},
+    {'key': 'lab', 'label': 'Laboratório / Química', 'asset': PextAssets.lab},
+    {'key': 'density', 'label': 'Densidade', 'asset': PextAssets.density},
+    {'key': 'temperature', 'label': 'Temperatura', 'asset': PextAssets.temperature},
     {'key': 'material', 'label': 'Matéria-Prima / Resina', 'asset': PextAssets.material},
-    {'key': 'pipe', 'label': 'Tubos / Encanamento', 'icon': Icons.plumbing_outlined},
-    {'key': 'film', 'label': 'Filmes Agrícolas', 'icon': Icons.layers_outlined},
-    {'key': 'med', 'label': 'Saúde / Medicina', 'icon': Icons.medical_services_outlined},
-    {'key': 'tool', 'label': 'Construção Civil', 'icon': Icons.construction_outlined},
-    {'key': 'furniture', 'label': 'Móveis / Utilidades', 'icon': Icons.chair_outlined},
-    {'key': 'industry', 'label': 'Indústria Geral', 'icon': Icons.precision_manufacturing_outlined},
   ];
 
   @override

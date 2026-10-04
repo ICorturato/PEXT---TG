@@ -41,6 +41,13 @@ class PextAssets {
   static const joys = 'icons/resins/joys.png';
   static const houseMachines = 'icons/resins/house_machines.png';
   static const material = 'icons/resins/material.png';
+  static const pipes = 'icons/resins/pipes.png';
+  static const lab = 'icons/resins/lab.png';
+  static const factory = 'icons/resins/factory.png';
+  static const furniture = 'icons/resins/furniture.png';
+  static const construction = 'icons/resins/construction.png';
+  static const health = 'icons/resins/health.png';
+  static const agriculturalFilms = 'icons/resins/agricultural_films.png';
   static const home = 'icons/navigation/home.png';
   static const homeActive = 'icons/navigation/home_2.png';
   static const profile = 'icons/navigation/profile.png';
