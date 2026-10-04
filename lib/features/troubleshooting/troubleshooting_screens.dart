@@ -832,7 +832,7 @@ class _DynamicVerificationCard extends StatelessWidget {
                 : 'Dentro da faixa recomendada';
     final statusColor = status == 'Dentro da faixa recomendada'
         ? const Color(0xFF1CBF66)
-        : const Color(0xFFD93838);
+        : const Color(0xFFEF4444);
     return Container(
         margin: const EdgeInsets.only(bottom: 10),
         decoration: _card(),
@@ -1271,7 +1271,7 @@ class _TroubleshootingFormScreenState extends State<TroubleshootingFormScreen> {
           ? null
           : IconButton(
               tooltip: 'Delete problem',
-              icon: const Icon(Icons.delete_outline, color: Color(0xFFD93838)),
+              icon: const Icon(Icons.delete_outline, color: Color(0xFFEF4444)),
               onPressed: _delete),
       child: Column(children: [
         Expanded(child: SingleChildScrollView(child: _general())),

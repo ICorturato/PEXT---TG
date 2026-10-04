@@ -95,9 +95,14 @@ class ApiClient {
 
   String mediaUrl(String? value) {
     if (value == null || value.isEmpty) return '';
-    if (value.startsWith('http://') || value.startsWith('https://'))
+    if (value.startsWith('http://') || value.startsWith('https://')) {
       return value;
-    return '$mediaOrigin$value';
+    }
+    if (value.startsWith('assets/') || value.startsWith('images/') || value.startsWith('icons/')) {
+      return value;
+    }
+    final normalized = value.startsWith('/') ? value : '/$value';
+    return '$mediaOrigin$normalized';
   }
 
   String resolveMediaUrl(String? value) => mediaUrl(value);

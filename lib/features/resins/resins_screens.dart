@@ -15,7 +15,7 @@ import '../../widgets/pext_asset_icon.dart';
 
 const _blue = Color(0xFF053488);
 const _navy = Color(0xFF053488); // #053488 for titles and subtitles
-const _red = Color(0xFFD93838);
+const _red = Color(0xFFEF4444);
 const _green = Color(0xFF1B873F);
 const _canvas = Color(0xFFF6F8FB);
 const _border = Color(0xFFE5E7EB);

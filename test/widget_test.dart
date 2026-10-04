@@ -7,6 +7,6 @@ void main() {
 
     expect(find.text('ENTRAR'), findsOneWidget);
     expect(find.text('E-mail'), findsOneWidget);
-    expect(find.text('Password'), findsOneWidget);
+    expect(find.text('SENHA'), findsOneWidget);
   });
 }

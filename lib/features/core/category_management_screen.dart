@@ -127,7 +127,7 @@ class _ScopedCategoryPickerState extends State<ScopedCategoryPicker> {
             value: matchedId,
             isExpanded: true,
               decoration: const InputDecoration(
-                labelText: 'Category',
+                labelText: 'Categoria',
                 filled: true,
                 fillColor: Colors.white,
                 contentPadding:
@@ -142,7 +142,7 @@ class _ScopedCategoryPickerState extends State<ScopedCategoryPicker> {
                 ),
               ),
               hint: Text(
-                _loading ? 'Loading categories...' : 'Select a category',
+                _loading ? 'Carregando categorias...' : 'Selecione a categoria',
                 style: const TextStyle(fontSize: 14, color: Color(0xFF6B7280)),
               ),
               items: _items.map((item) {
@@ -238,8 +238,8 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
       context: context,
       builder: (_) => _CategoryEditDialog(
         title: item == null
-            ? 'New ${widget.scope.label} category'
-            : 'Edit category',
+            ? 'Nova Categoria'
+            : 'Editar Categoria',
         initialName: item?.name ?? '',
         initialIconKey: item?.iconKey,
         initialImageUrl: item?.imageUrl,
@@ -285,7 +285,7 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
             child: const Text('Cancelar'),
           ),
           FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: const Color(0xFFD93838)),
+            style: FilledButton.styleFrom(backgroundColor: const Color(0xFFEF4444)),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Excluir'),
           ),
@@ -306,7 +306,7 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
   Widget build(BuildContext context) => Scaffold(
         appBar: AppBar(
           title: Text(
-            '${widget.scope.label} categories',
+            'Categorias de ${widget.scope.label}',
             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
           ),
           backgroundColor: const Color(0xFFF6F8FB),
@@ -343,15 +343,15 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
                         ),
                         child: ListTile(
                           leading: Container(
-                            width: 38,
-                            height: 38,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF3F4F6),
-                              borderRadius: BorderRadius.circular(8),
+                              width: 38,
+                              height: 38,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF3F4F6),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              alignment: Alignment.center,
+                              child: buildCategoryIcon(item, size: 22),
                             ),
-                            alignment: Alignment.center,
-                            child: buildCategoryIcon(item, size: 22),
-                          ),
                           title: Text(
                             item.name,
                             style: const TextStyle(
@@ -368,15 +368,15 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
                             spacing: 0,
                             children: [
                               IconButton(
-                                tooltip: 'Edit category',
+                                tooltip: 'Editar categoria',
                                 onPressed: () => _edit(item),
                                 icon: const Icon(Icons.edit_outlined, color: _blue),
                               ),
                               IconButton(
-                                tooltip: 'Delete category',
+                                tooltip: 'Excluir categoria',
                                 onPressed: () => _delete(item),
                                 icon: const Icon(Icons.delete_outline,
-                                    color: Color(0xFFD93838)),
+                                    color: Color(0xFFEF4444)),
                               ),
                             ],
                           ),

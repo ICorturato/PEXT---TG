@@ -123,10 +123,10 @@ class _LoginPageState extends State<LoginPage> {
                     const PextLogo(),
                     const Spacer(flex: 3),
                     FieldLabel('E-mail',
-                        hint: 'admin@pext.local', controller: _email),
+                        hint: 'exemplo@gmail.com', controller: _email),
                     const SizedBox(height: 6),
-                    FieldLabel('Password',
-                        hint: 'Enter your password',
+                    FieldLabel('SENHA',
+                        hint: 'Digite sua senha',
                         obscure: true,
                         controller: _password),
                     Align(
@@ -829,7 +829,7 @@ class QuickGrid extends StatelessWidget {
         QuickAction(PextAssets.product, 'Embalagens',
             () => go(context, const PackagingPage(admin: true))),
       if (admin)
-        QuickAction(PextAssets.profile, 'Usuários',
+        QuickAction(PextAssets.users, 'Gestão de\nUsuários',
             () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminUserManagementScreen()))),
     ];
     return GridView.builder(
@@ -872,7 +872,9 @@ class SectionTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
       padding: const EdgeInsets.only(top: 10, bottom: 10),
-      child: Text(text, style: const TextStyle(color: _blue, fontSize: 17)));
+      child: Text(text,
+          style: const TextStyle(
+              color: _blue, fontSize: 18, fontWeight: FontWeight.bold)));
 }
 
 BoxDecoration card() => BoxDecoration(
@@ -1829,7 +1831,10 @@ class _DynamicFavoriteTrainingCard extends StatelessWidget {
     } else if (liveTraining.isAwaitingAssessment) {
       badgeText = 'Falta realizar a prova';
       badgeColor = const Color(0xFFF59E0B);
-    } else if (progress > 0) {
+    } else if (progress > 0 ||
+        liveTraining.isDefaultForAllUsers ||
+        liveTraining.isObrigatorio ||
+        liveTraining.isEnrolled) {
       badgeText = 'Em curso';
       badgeColor = const Color(0xFFF59E0B);
     } else {

@@ -676,7 +676,7 @@ class _CadastroTermoScreenState extends State<CadastroTermoScreen> {
                               _topics.removeAt(entry.key);
                             }),
                         icon: const Icon(Icons.delete_outline,
-                            color: Color(0xFFD93838)))
+                            color: Color(0xFFEF4444)))
                 ]),
                 _TermFormField('Conteúdo do tópico',
                     controller: entry.value.content, lines: 3),
@@ -705,7 +705,7 @@ class _CadastroTermoScreenState extends State<CadastroTermoScreen> {
             Padding(
                 padding: const EdgeInsets.only(bottom: 8),
                 child: Text(_imageError!,
-                    style: const TextStyle(color: Color(0xFFD93838)))),
+                    style: const TextStyle(color: Color(0xFFEF4444)))),
           SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
@@ -1238,7 +1238,7 @@ class _TrainingDetailScreenState extends State<TrainingDetailScreen> {
             child: const Text('Voltar'),
           ),
           FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: const Color(0xFFD93838)),
+            style: FilledButton.styleFrom(backgroundColor: const Color(0xFFEF4444)),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Cancelar Matrícula'),
           ),
@@ -1344,7 +1344,7 @@ class _TrainingDetailScreenState extends State<TrainingDetailScreen> {
           ),
           FilledButton(
             style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFFD93838),
+              backgroundColor: const Color(0xFFEF4444),
             ),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Excluir'),
@@ -1404,7 +1404,7 @@ class _TrainingDetailScreenState extends State<TrainingDetailScreen> {
                     FavoritesService.instance.isFavorited(id);
                 return _BoxedHeaderAction(
                   icon: isFav ? Icons.favorite : Icons.favorite_border,
-                  color: isFav ? const Color(0xFFEF4444) : const Color(0xFF132B5C),
+                  color: isFav ? const Color(0xFFEF4444) : const Color(0xFF053488),
                   onTap: _toggleFavorite,
                 );
               },
@@ -1854,7 +1854,7 @@ class _CourseProgressCard extends StatelessWidget {
             width: double.infinity,
             child: FilledButton.icon(
               style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFFD93838),
+                backgroundColor: const Color(0xFFEF4444),
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
@@ -1907,8 +1907,8 @@ class _CourseProgressCard extends StatelessWidget {
             width: double.infinity,
             child: OutlinedButton.icon(
               style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFFD93838),
-                side: const BorderSide(color: Color(0xFFD93838)),
+                foregroundColor: const Color(0xFFEF4444),
+                side: const BorderSide(color: Color(0xFFEF4444)),
                 minimumSize: const Size(0, 40),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
@@ -2498,7 +2498,7 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
             child: const Text('CANCELAR'),
           ),
           FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: const Color(0xFFD93838)),
+            style: FilledButton.styleFrom(backgroundColor: const Color(0xFFEF4444)),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('EXCLUIR'),
           ),
@@ -2566,14 +2566,14 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
                 style: OutlinedButton.styleFrom(
                   minimumSize: const Size(0, 38),
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  foregroundColor: const Color(0xFFD93838),
-                  side: const BorderSide(color: Color(0xFFD93838)),
+                  foregroundColor: const Color(0xFFEF4444),
+                  side: const BorderSide(color: Color(0xFFEF4444)),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(24),
                   ),
                 ),
                 onPressed: _confirmDelete,
-                icon: const Icon(Icons.delete_outline, size: 18, color: Color(0xFFD93838)),
+                icon: const Icon(Icons.delete_outline, size: 18, color: Color(0xFFEF4444)),
                 label: const Text(
                   'Excluir Conteúdo',
                   style: TextStyle(
@@ -2589,14 +2589,14 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
                 style: OutlinedButton.styleFrom(
                   minimumSize: const Size(0, 38),
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  foregroundColor: const Color(0xFF132B5C),
-                  side: const BorderSide(color: Color(0xFF132B5C)),
+                  foregroundColor: const Color(0xFF053488),
+                  side: const BorderSide(color: Color(0xFF053488)),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(24),
                   ),
                 ),
                 onPressed: _editContent,
-                icon: const Icon(Icons.edit_outlined, size: 18, color: Color(0xFF132B5C)),
+                icon: const Icon(Icons.edit_outlined, size: 18, color: Color(0xFF053488)),
                 label: const Text(
                   'Editar Conteúdo',
                   style: TextStyle(
@@ -2683,7 +2683,7 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
                     m.videos.isNotEmpty ? '${m.videos.length} vídeo(s)' : 'Módulo seguinte',
                     style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
                   ),
-                  trailing: const Icon(Icons.play_circle_outline, color: Color(0xFF132B5C)),
+                  trailing: const Icon(Icons.play_circle_outline, color: Color(0xFF053488)),
                   onTap: () {
                     Navigator.pushReplacement(
                       context,
@@ -2826,8 +2826,8 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
         child: OutlinedButton(
           style: OutlinedButton.styleFrom(
             minimumSize: const Size(0, 44),
-            foregroundColor: const Color(0xFF132B5C),
-            side: const BorderSide(color: Color(0xFF132B5C)),
+            foregroundColor: const Color(0xFF053488),
+            side: const BorderSide(color: Color(0xFF053488)),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(22),
             ),
@@ -4287,14 +4287,6 @@ class _TrainingEditorScreenState extends State<TrainingEditorScreen> {
         ),
         _Field('Carga horária total (opcional)',
             controller: _hoursController, hint: 'Ex: 4 horas'),
-        const Align(
-          alignment: Alignment.centerLeft,
-          child: Text(
-            'Imagem de capa',
-            style: TextStyle(color: _blue, fontWeight: FontWeight.bold),
-          ),
-        ),
-        const SizedBox(height: 6),
         InkWell(
             onTap: _pickThumbnail,
             borderRadius: BorderRadius.circular(12),
@@ -4391,8 +4383,8 @@ class _TrainingEditorScreenState extends State<TrainingEditorScreen> {
                           style: OutlinedButton.styleFrom(
                             minimumSize: const Size(0, 38),
                             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                            foregroundColor: const Color(0xFF132B5C),
-                            side: const BorderSide(color: Color(0xFF132B5C)),
+                            foregroundColor: const Color(0xFF053488),
+                            side: const BorderSide(color: Color(0xFF053488)),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(10),
                             ),
@@ -4421,8 +4413,8 @@ class _TrainingEditorScreenState extends State<TrainingEditorScreen> {
                           style: OutlinedButton.styleFrom(
                             minimumSize: const Size(0, 38),
                             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                            foregroundColor: const Color(0xFFD93838),
-                            side: const BorderSide(color: Color(0xFFD93838)),
+                            foregroundColor: const Color(0xFFEF4444),
+                            side: const BorderSide(color: Color(0xFFEF4444)),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(10),
                             ),
@@ -4444,34 +4436,19 @@ class _TrainingEditorScreenState extends State<TrainingEditorScreen> {
             ),
           );
         }),
-        SizedBox(
-          width: double.infinity,
-          child: OutlinedButton.icon(
-            style: OutlinedButton.styleFrom(
-              minimumSize: const Size(0, 44),
-              foregroundColor: const Color(0xFF132B5C),
-              side: const BorderSide(color: Color(0xFF132B5C)),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(22),
+        _AddContentButton(
+          label: 'ADICIONAR MÓDULO',
+          onTap: () async {
+            final newMod = await Navigator.push<TrainingModule>(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const ModuleEditorScreen(),
               ),
-            ),
-            onPressed: () async {
-              final newMod = await Navigator.push<TrainingModule>(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const ModuleEditorScreen(),
-                ),
-              );
-              if (newMod != null) {
-                setState(() => _modules.add(newMod));
-              }
-            },
-            icon: const Icon(Icons.add),
-            label: const Text(
-              '+ ADICIONAR MÓDULO',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ),
+            );
+            if (newMod != null) {
+              setState(() => _modules.add(newMod));
+            }
+          },
         ),
       ]);
 
@@ -4495,7 +4472,7 @@ class _TrainingEditorScreenState extends State<TrainingEditorScreen> {
                     style: TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.bold,
-                      color: _isQuestionCountValid ? const Color(0xFF16A34A) : const Color(0xFFD93838),
+                      color: _isQuestionCountValid ? const Color(0xFF16A34A) : const Color(0xFFEF4444),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -4503,7 +4480,7 @@ class _TrainingEditorScreenState extends State<TrainingEditorScreen> {
                     'questões cadastradas',
                     style: TextStyle(
                       fontSize: 13,
-                      color: _isQuestionCountValid ? const Color(0xFF374151) : const Color(0xFFD93838),
+                      color: _isQuestionCountValid ? const Color(0xFF374151) : const Color(0xFFEF4444),
                     ),
                   ),
                 ],
@@ -4513,7 +4490,7 @@ class _TrainingEditorScreenState extends State<TrainingEditorScreen> {
                 'Mínimo: 30 | Máximo: 50 questões',
                 style: TextStyle(
                   fontSize: 11,
-                  color: _isQuestionCountValid ? const Color(0xFF6B7280) : const Color(0xFFD93838),
+                  color: _isQuestionCountValid ? const Color(0xFF6B7280) : const Color(0xFFEF4444),
                   fontWeight: _isQuestionCountValid ? FontWeight.normal : FontWeight.bold,
                 ),
               ),
@@ -4588,7 +4565,7 @@ class _TrainingEditorScreenState extends State<TrainingEditorScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('A avaliação deve conter entre 30 e 50 questões cadastradas.'),
-          backgroundColor: Color(0xFFD93838),
+          backgroundColor: Color(0xFFEF4444),
         ),
       );
       return;
@@ -4912,8 +4889,8 @@ class _ModuleEditorScreenState extends State<ModuleEditorScreen> {
           child: OutlinedButton.icon(
             style: OutlinedButton.styleFrom(
               minimumSize: const Size(0, 42),
-              foregroundColor: const Color(0xFF132B5C),
-              side: const BorderSide(color: Color(0xFF132B5C)),
+              foregroundColor: const Color(0xFF053488),
+              side: const BorderSide(color: Color(0xFF053488)),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(21)),
             ),
             onPressed: _addVideo,
@@ -4966,8 +4943,8 @@ class _ModuleEditorScreenState extends State<ModuleEditorScreen> {
           child: OutlinedButton.icon(
             style: OutlinedButton.styleFrom(
               minimumSize: const Size(0, 42),
-              foregroundColor: const Color(0xFF132B5C),
-              side: const BorderSide(color: Color(0xFF132B5C)),
+              foregroundColor: const Color(0xFF053488),
+              side: const BorderSide(color: Color(0xFF053488)),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(21)),
             ),
             onPressed: _addDocument,
@@ -5103,11 +5080,11 @@ class _AdminQuestionListScreenState extends State<AdminQuestionListScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.edit_outlined, color: Color(0xFF132B5C)),
+                    icon: const Icon(Icons.edit_outlined, color: Color(0xFF053488)),
                     onPressed: () => _editQuestion(index),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.delete_outline, color: Color(0xFFD93838)),
+                    icon: const Icon(Icons.delete_outline, color: Color(0xFFEF4444)),
                     onPressed: () => setState(() => _questions.removeAt(index)),
                   ),
                 ],
@@ -5225,8 +5202,8 @@ class _QuestionTypeSelectorScreenState
               child: OutlinedButton(
                 style: OutlinedButton.styleFrom(
                   minimumSize: const Size(0, 48),
-                  foregroundColor: const Color(0xFF132B5C),
-                  side: const BorderSide(color: Color(0xFF132B5C)),
+                  foregroundColor: const Color(0xFF053488),
+                  side: const BorderSide(color: Color(0xFF053488)),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
                 ),
                 onPressed: () => Navigator.pop(context),
@@ -5588,12 +5565,12 @@ class _AdminQuestionEditorScreenState
                             }),
                           ),
                         IconButton(
-                          icon: const Icon(Icons.edit_outlined, color: Color(0xFF132B5C), size: 20),
+                          icon: const Icon(Icons.edit_outlined, color: Color(0xFF053488), size: 20),
                           onPressed: () => _editAlternative(index),
                         ),
                         if (type != 1 && _alternatives.length > 2)
                           IconButton(
-                            icon: const Icon(Icons.delete_outline, color: Color(0xFFD93838), size: 20),
+                            icon: const Icon(Icons.delete_outline, color: Color(0xFFEF4444), size: 20),
                             onPressed: () => setState(() {
                               _alternatives.removeAt(index);
                               _correct.remove(index);
@@ -5612,8 +5589,8 @@ class _AdminQuestionEditorScreenState
                     child: OutlinedButton.icon(
                       style: OutlinedButton.styleFrom(
                         minimumSize: const Size(0, 44),
-                        foregroundColor: const Color(0xFF132B5C),
-                        side: const BorderSide(color: Color(0xFF132B5C)),
+                        foregroundColor: const Color(0xFF053488),
+                        side: const BorderSide(color: Color(0xFF053488)),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
                       ),
                       onPressed: () => _editAlternative(null),
@@ -5631,8 +5608,8 @@ class _AdminQuestionEditorScreenState
               child: OutlinedButton(
                 style: OutlinedButton.styleFrom(
                   minimumSize: const Size(0, 48),
-                  foregroundColor: const Color(0xFF132B5C),
-                  side: const BorderSide(color: Color(0xFF132B5C)),
+                  foregroundColor: const Color(0xFF053488),
+                  side: const BorderSide(color: Color(0xFF053488)),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
                 ),
                 onPressed: () => Navigator.pop(context),
@@ -5692,7 +5669,7 @@ class _ChatAssistantScreenState extends State<ChatAssistantScreen> {
             child: const Text('Cancelar'),
           ),
           FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: const Color(0xFFD93838)),
+            style: FilledButton.styleFrom(backgroundColor: const Color(0xFFEF4444)),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Limpar'),
           ),
@@ -5744,7 +5721,7 @@ class _ChatAssistantScreenState extends State<ChatAssistantScreen> {
                         ),
                         FilledButton(
                           style: FilledButton.styleFrom(
-                              backgroundColor: const Color(0xFFD93838)),
+                              backgroundColor: const Color(0xFFEF4444)),
                           onPressed: () => Navigator.pop(ctx, true),
                           child: const Text('Excluir tudo'),
                         ),
@@ -6000,7 +5977,7 @@ class _UserChatHistoryTab extends StatelessWidget {
                                     FilledButton(
                                       style: FilledButton.styleFrom(
                                           backgroundColor:
-                                              const Color(0xFFD93838)),
+                                              const Color(0xFFEF4444)),
                                       onPressed: () => Navigator.pop(ctx, true),
                                       child: const Text('Excluir'),
                                     ),
@@ -6426,9 +6403,9 @@ class _AssistantChatTabState extends State<_AssistantChatTab> {
                             )
                           : OutlinedButton.icon(
                               style: OutlinedButton.styleFrom(
-                                foregroundColor: const Color(0xFFD93838),
+                                foregroundColor: const Color(0xFFEF4444),
                                 side:
-                                    const BorderSide(color: Color(0xFFD93838)),
+                                    const BorderSide(color: Color(0xFFEF4444)),
                                 shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(10)),
                                 padding: const EdgeInsets.symmetric(
@@ -7520,7 +7497,7 @@ class _FilterRow extends StatelessWidget {
   Widget build(BuildContext context) => Row(
         children: labels.asMap().entries.map((entry) {
           final isSelected = entry.key == value;
-          const selectedColor = Color(0xFF132B5C);
+          const selectedColor = Color(0xFF053488);
           const unselectedColor = Color(0xFF737D8C);
           const unselectedBorder = Color(0xFFD1D5DB);
 
@@ -8008,8 +7985,8 @@ class DetalhesConteudoScreen extends StatelessWidget {
               icon: const PextAssetIcon(PextAssets.edit, size: 17),
               label: Text(item.isActive ? 'Editar Conteúdo' : 'Edição Bloqueada'),
               style: OutlinedButton.styleFrom(
-                foregroundColor: item.isActive ? const Color(0xFF132B5C) : const Color(0xFF9AA4B4),
-                side: BorderSide(color: item.isActive ? const Color(0xFF132B5C) : const Color(0xFFD1D5DB)),
+                foregroundColor: item.isActive ? const Color(0xFF053488) : const Color(0xFF9AA4B4),
+                side: BorderSide(color: item.isActive ? const Color(0xFF053488) : const Color(0xFFD1D5DB)),
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12)),
               ),
@@ -8860,7 +8837,7 @@ class _PackagingRegistrationScreenState
                       onPressed: () =>
                           setState(() => _extraParameters.remove(parameter)),
                       icon: const Icon(Icons.delete_outline,
-                          color: Color(0xFFD93838)))))),
+                          color: Color(0xFFEF4444)))))),
           SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
@@ -9049,7 +9026,7 @@ class _PackagingInputRow extends StatelessWidget {
         IconButton(
             tooltip: 'Excluir $label',
             onPressed: onDelete,
-            icon: const Icon(Icons.delete_outline, color: Color(0xFFD93838))),
+            icon: const Icon(Icons.delete_outline, color: Color(0xFFEF4444))),
       ]));
 }
 
@@ -9183,8 +9160,8 @@ class PackagingDetailScreen extends StatelessWidget {
                           minimumSize: const Size(0, 40),
                           padding: const EdgeInsets.symmetric(
                               horizontal: 12, vertical: 8),
-                          foregroundColor: const Color(0xFF132B5C),
-                          side: const BorderSide(color: Color(0xFF132B5C)),
+                          foregroundColor: const Color(0xFF053488),
+                          side: const BorderSide(color: Color(0xFF053488)),
                           shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12))))),
               const SizedBox(width: 8),
@@ -9207,8 +9184,8 @@ class PackagingDetailScreen extends StatelessWidget {
                           minimumSize: const Size(0, 40),
                           padding: const EdgeInsets.symmetric(
                               horizontal: 12, vertical: 8),
-                          foregroundColor: const Color(0xFFD93838),
-                          side: const BorderSide(color: Color(0xFFD93838)),
+                          foregroundColor: const Color(0xFFEF4444),
+                          side: const BorderSide(color: Color(0xFFEF4444)),
                           shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12))))),
             ]),
@@ -10579,14 +10556,23 @@ class _AttachmentPreview extends StatelessWidget {
 
 class _AddContentButton extends StatelessWidget {
   final VoidCallback onTap;
-  const _AddContentButton({required this.onTap});
+  final String label;
+  const _AddContentButton({required this.onTap, this.label = 'ADICIONAR'});
   @override
   Widget build(BuildContext context) => SizedBox(
       width: double.infinity,
       child: OutlinedButton.icon(
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size(0, 48),
+            foregroundColor: _blue,
+            side: const BorderSide(color: _blue, width: 1.5),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
           onPressed: onTap,
-          icon: const Icon(Icons.add_circle_outline),
-          label: const Text('ADICIONAR')));
+          icon: const Icon(Icons.add_circle_outline, size: 20),
+          label: Text(label, style: const TextStyle(fontWeight: FontWeight.bold))));
 }
 
 class TrainingSuccessDialog extends StatelessWidget {

@@ -27,6 +27,7 @@ class PextAssets {
   static const training = 'icons/home/treinamento.png';
   static const problem = 'icons/home/problema.png';
   static const dashb = 'icons/home/dashboard.png';
+  static const users = 'icons/home/users.png';
   static const density = 'icons/resins/density.png';
   static const temperature = 'icons/resins/high_temperature.png';
   static const mfi = 'icons/resins/mfi.png';

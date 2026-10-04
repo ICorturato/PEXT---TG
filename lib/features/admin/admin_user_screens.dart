@@ -21,6 +21,50 @@ BoxDecoration _card() => BoxDecoration(
       ],
     );
 
+class UserAvatarView extends StatelessWidget {
+  final String? avatarUrl;
+  final double radius;
+
+  const UserAvatarView({super.key, this.avatarUrl, this.radius = 26});
+
+  @override
+  Widget build(BuildContext context) {
+    final url = avatarUrl?.trim();
+    if (url != null && url.isNotEmpty) {
+      if (url.startsWith('images/') || url.startsWith('assets/') || url.startsWith('icons/')) {
+        return CircleAvatar(
+          radius: radius,
+          backgroundColor: _blue.withOpacity(0.1),
+          backgroundImage: AssetImage(url),
+        );
+      }
+      return CircleAvatar(
+        radius: radius,
+        backgroundColor: _blue.withOpacity(0.1),
+        child: ClipOval(
+          child: Image.network(
+            ApiClient.instance.mediaUrl(url),
+            width: radius * 2,
+            height: radius * 2,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => Image.asset(
+              'images/profile_igor.png',
+              width: radius * 2,
+              height: radius * 2,
+              fit: BoxFit.cover,
+            ),
+          ),
+        ),
+      );
+    }
+    return CircleAvatar(
+      radius: radius,
+      backgroundColor: _blue.withOpacity(0.1),
+      backgroundImage: const AssetImage('images/profile_igor.png'),
+    );
+  }
+}
+
 class AdminUserManagementScreen extends StatefulWidget {
   const AdminUserManagementScreen({super.key});
 
@@ -256,13 +300,9 @@ class _UserCatalogCard extends StatelessWidget {
             child: Row(
               children: [
                 // Avatar
-                CircleAvatar(
+                UserAvatarView(
+                  avatarUrl: avatarUrl,
                   radius: 26,
-                  backgroundColor: _blue.withOpacity(0.1),
-                  backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
-                      ? NetworkImage(ApiClient.instance.mediaUrl(avatarUrl))
-                      : const AssetImage('images/profile_igor.png')
-                          as ImageProvider,
                 ),
                 const SizedBox(width: 12),
 
@@ -1053,15 +1093,9 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
                     children: [
                       Row(
                         children: [
-                          CircleAvatar(
+                          UserAvatarView(
+                            avatarUrl: avatarUrl,
                             radius: 36,
-                            backgroundColor: _blue.withOpacity(0.1),
-                            backgroundImage: avatarUrl != null &&
-                                    avatarUrl.isNotEmpty
-                                ? NetworkImage(
-                                    ApiClient.instance.mediaUrl(avatarUrl))
-                                : const AssetImage('images/profile_igor.png')
-                                    as ImageProvider,
                           ),
                           const SizedBox(width: 16),
                           Expanded(

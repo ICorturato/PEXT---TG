@@ -11,10 +11,10 @@ extension CategoryScopeApi on CategoryScope {
       };
 
   String get label => switch (this) {
-        CategoryScope.resin => 'Resins',
-        CategoryScope.training => 'Trainings',
-        CategoryScope.terms => 'Terms',
-        CategoryScope.problem => 'Problems',
+        CategoryScope.resin => 'Resinas',
+        CategoryScope.training => 'Treinamentos',
+        CategoryScope.terms => 'Termos',
+        CategoryScope.problem => 'Problemas',
         CategoryScope.content => 'Conteúdo',
         CategoryScope.packaging => 'Embalagens',
       };

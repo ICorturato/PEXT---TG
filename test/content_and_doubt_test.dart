@@ -155,7 +155,7 @@ void main() {
       expect(find.text('NOVO CONTEÚDO'), findsOneWidget);
       expect(find.text('Digite o tema'), findsOneWidget);
       expect(find.text('Conteúdo'), findsOneWidget);
-      expect(find.text('Categoria'), findsOneWidget);
+      expect(find.text('Categoria'), findsWidgets);
       expect(find.text('Anexar Documentação'), findsOneWidget);
       expect(find.text('ADICIONAR DOCUMENTO'), findsOneWidget);
       expect(find.text('CADASTRAR'), findsOneWidget);

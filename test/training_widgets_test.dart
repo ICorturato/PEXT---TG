@@ -84,7 +84,7 @@ void main() {
     // Click on Módulos tab
     await tester.tap(find.text('Módulos'));
     await tester.pumpAndSettle();
-    expect(find.text('+ ADICIONAR MÓDULO'), findsOneWidget);
+    expect(find.text('ADICIONAR MÓDULO'), findsOneWidget);
 
     // Click on Avaliação tab
     await tester.tap(find.text('Avaliação'));
